@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'leaflet/dist/leaflet.css';
+
+@layer base {
+  :root {
+    /* Base Colors - Command Center Dark Theme */
+    --background: 230 25% 6%;
+    --foreground: 210 40% 98%;
+
+    --surface: 230 20% 10%;
+    --surface-muted: 230 20% 14%;
+    
+    --border: 230 20% 20%;
+
+    /* Brand Colors */
+    --primary: 210 100% 50%;
+    --primary-foreground: 210 40% 98%;
+    
+    --secondary: 230 25% 18%;
+    --secondary-foreground: 210 40% 98%;
+
+    --accent: 280 80% 60%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Semantic Risk Colors */
+    --info: 210 100% 50%;       /* Blue */
+    --success: 150 60% 45%;     /* Teal/Green for Very Low Risk */
+    --warning: 40 90% 55%;      /* Yellow/Orange for Moderate Risk */
+    --danger: 15 90% 55%;       /* Orange/Red for High Risk */
+    --critical: 0 100% 50%;     /* Pure Red for Critical Risk */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30;
+    /* Optional subtle grid background for the command center feel */
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center center;
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Glassmorphism utilities */
+  .glass {
+    @apply bg-surface/60 backdrop-blur-md border border-white/5;
+  }
+  
+  .glass-panel {
+    @apply bg-surface/40 backdrop-blur-lg border border-white/10 shadow-xl;
+  }
+}

@@ -1,0 +1,3 @@
+# Trained model binaries are excluded from version control.
+# Track versions and metrics via model cards in docs/ml/.
+# Serialized files (.joblib, .pkl, .onnx, etc.) are listed in .gitignore.

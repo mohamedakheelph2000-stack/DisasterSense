@@ -1,0 +1,60 @@
+{
+  "datasets": [
+    {
+      "id": "global_flood_database",
+      "name": "Global Flood Database",
+      "provider": "Cloud to Street / Dartmouth Flood Observatory",
+      "official_url": "http://global-flood-database.cloudtostreet.info/",
+      "version": "v1.4",
+      "geographic_coverage": "Global",
+      "temporal_coverage": "2000-2018",
+      "expected_format": "GeoTIFF / CSV Export",
+      "crs": "EPSG:4326",
+      "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+      "attribution_required": true,
+      "retrieval_date": "2026-09-15"
+    },
+    {
+      "id": "nasa_glc",
+      "name": "NASA Global Landslide Catalog (COOLR)",
+      "provider": "NASA Goddard Space Flight Center",
+      "official_url": "https://gpm.nasa.gov/landslides/data.html",
+      "version": "Latest Export",
+      "geographic_coverage": "Global",
+      "temporal_coverage": "2007-present",
+      "expected_format": "CSV / Shapefile",
+      "crs": "EPSG:4326",
+      "license": "Open Data (Public Domain)",
+      "attribution_required": true,
+      "retrieval_date": "2026-09-15"
+    },
+    {
+      "id": "copernicus_era5",
+      "name": "ERA5 Hourly Data on Single Levels",
+      "provider": "ECMWF / Copernicus Climate Change Service",
+      "official_url": "https://cds.climate.copernicus.eu/",
+      "version": "ERA5",
+      "geographic_coverage": "Global (0.25 deg resolution)",
+      "temporal_coverage": "1940-present",
+      "expected_format": "NetCDF / GRIB / API JSON (via Open-Meteo)",
+      "crs": "EPSG:4326",
+      "license": "Copernicus License (Free, full and open)",
+      "attribution_required": true,
+      "retrieval_date": "2026-09-15"
+    },
+    {
+      "id": "srtm_dem",
+      "name": "Shuttle Radar Topography Mission (SRTM) 30m DEM",
+      "provider": "NASA / USGS",
+      "official_url": "https://earthexplorer.usgs.gov/",
+      "version": "v3",
+      "geographic_coverage": "Global",
+      "temporal_coverage": "Static (2000)",
+      "expected_format": "GeoTIFF / API",
+      "crs": "EPSG:4326",
+      "license": "Public Domain",
+      "attribution_required": false,
+      "retrieval_date": "2026-09-15"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+    "model_name": "RandomForest",
+    "hazard": "flood",
+    "dataset_version": "real-v1",
+    "feature_list": [
+        "rainfall_mm_24h",
+        "rainfall_intensity_mm_h",
+        "antecedent_rainfall_7d_mm",
+        "temperature_c",
+        "humidity_pct",
+        "elevation_m"
+    ],
+    "training_row_count": 17,
+    "validation_row_count": 12,
+    "test_row_count": 15,
+    "random_seed": 42,
+    "hyperparameters": "class_weight=balanced",
+    "validation_metrics": {
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "confusion_matrix": [
+            [
+                8,
+                0
+            ],
+            [
+                0,
+                4
+            ]
+        ],
+        "roc_auc": 1.0
+    },
+    "test_metrics": "Not evaluated on test set",
+    "training_timestamp": "2026-09-15T16:59:27.750911Z",
+    "is_best_model": false,
+    "feature_importance": {
+        "rainfall_mm_24h": 0.14284372709338927,
+        "rainfall_intensity_mm_h": 0.1129912478259571,
+        "antecedent_rainfall_7d_mm": 0.3358291782869647,
+        "temperature_c": 0.17616113324858276,
+        "humidity_pct": 0.17974540598045316,
+        "elevation_m": 0.052429307564653076
+    },
+    "known_limitations": "Small dataset (Kerala). Highly volatile metrics. slope_deg omitted for landslide."
+}

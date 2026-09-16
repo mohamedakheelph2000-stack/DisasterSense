@@ -1,0 +1,72 @@
+# Secrets and local environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# JavaScript and Next.js
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+site/
+*.egg-info/
+
+# Local databases, uploads, logs, and runtime files
+*.sqlite
+*.sqlite3
+*.db
+uploads/
+storage/
+logs/
+*.log
+
+# Docker and operating-system files
+postgres_data/
+docker-data/
+.DS_Store
+Thumbs.db
+
+# Local IDE settings
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ML data is reproducible or externally sourced; do not commit it by default
+ml/data/raw/
+ml/data/external/
+ml/data/interim/
+ml/data/processed/
+
+# Never commit serialized model binaries; track manifests and model cards instead
+# EXCEPTION: For this deployment, we commit the core .joblib models
+*.joblib
+!ml/models/*.joblib
+*.pkl
+*.pickle
+*.onnx
+*.h5
+*.pt
+*.pth
+*.ckpt
+

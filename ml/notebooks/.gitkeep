@@ -1,0 +1,3 @@
+# Exploratory notebooks — named by number and short description.
+# Example: 01_data_exploration.ipynb
+# Strip output cells before committing (use nbstripout or similar).

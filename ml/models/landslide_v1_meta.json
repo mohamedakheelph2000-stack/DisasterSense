@@ -1,0 +1,48 @@
+{
+  "model_name": "landslide_risk_random_forest",
+  "model_version": "v1.0.0",
+  "trained_at": "2026-09-11T15:20:24.039810+00:00",
+  "feature_names": [
+    "rainfall_mm_24h",
+    "rainfall_intensity_mm_h",
+    "slope_deg",
+    "elevation_m",
+    "soil_type_code",
+    "soil_moisture_pct",
+    "geological_stability_index",
+    "vegetation_cover_pct",
+    "historical_landslide_count",
+    "road_cut_proximity_m"
+  ],
+  "feature_importances": {
+    "rainfall_mm_24h": 0.1649,
+    "rainfall_intensity_mm_h": 0.0857,
+    "slope_deg": 0.1502,
+    "elevation_m": 0.037,
+    "soil_type_code": 0.0143,
+    "soil_moisture_pct": 0.1025,
+    "geological_stability_index": 0.2078,
+    "vegetation_cover_pct": 0.0833,
+    "historical_landslide_count": 0.0612,
+    "road_cut_proximity_m": 0.0931
+  },
+  "evaluation_metrics": {
+    "accuracy": 0.9375,
+    "precision": 1.0,
+    "recall": 0.5588,
+    "f1_score": 0.717,
+    "roc_auc": 0.972,
+    "confusion_matrix": [
+      [
+        206,
+        0
+      ],
+      [
+        15,
+        19
+      ]
+    ],
+    "dataset_size": 240,
+    "timestamp": "2026-09-11T15:20:24.039810+00:00"
+  }
+}
