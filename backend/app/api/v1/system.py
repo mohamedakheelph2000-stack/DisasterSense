@@ -75,3 +75,20 @@ def get_system_status(
         ml_models=ml_status,
         notifications=notification_status
     )
+
+
+from app.services.telemetry_worker import telemetry_worker
+
+@router.get("/telemetry-worker", summary="Get 24/7 Telemetry Worker Status")
+def get_telemetry_worker_status():
+    """Returns 24/7 live telemetry worker health, stats, and real-time readings."""
+    return telemetry_worker.get_status()
+
+
+@router.post("/telemetry-worker/poll-now", summary="Trigger Immediate Telemetry Cycle")
+async def trigger_telemetry_poll_now(
+    current_user: User = Depends(RequireRole([UserRole.ADMIN, UserRole.RESPONDER]))
+):
+    """Triggers an immediate telemetry ingestion cycle across all monitored locations."""
+    summary = await telemetry_worker.trigger_poll_now()
+    return {"message": "Telemetry poll completed successfully", "summary": summary}

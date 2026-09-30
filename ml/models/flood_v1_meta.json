@@ -1,7 +1,7 @@
 {
-  "model_name": "flood_risk_random_forest",
+  "model_name": "flood_risk_production",
   "model_version": "v1.0.0",
-  "trained_at": "2026-09-11T15:20:23.858118+00:00",
+  "trained_at": "2026-09-30T20:48:22.262767+00:00",
   "feature_names": [
     "rainfall_mm_24h",
     "rainfall_intensity_mm_h",
@@ -16,35 +16,36 @@
     "distance_to_river_m"
   ],
   "feature_importances": {
-    "rainfall_mm_24h": 0.2448,
-    "rainfall_intensity_mm_h": 0.2679,
-    "rainfall_duration_h": 0.0413,
-    "temperature_c": 0.0402,
-    "humidity_pct": 0.042,
-    "elevation_m": 0.0591,
-    "slope_deg": 0.0344,
-    "drainage_capacity_score": 0.11,
-    "soil_saturation_pct": 0.0608,
-    "historical_flood_count": 0.0483,
-    "distance_to_river_m": 0.0511
+    "rainfall_mm_24h": 0.5007,
+    "rainfall_intensity_mm_h": 0.0722,
+    "rainfall_duration_h": 0.014,
+    "temperature_c": 0.0159,
+    "humidity_pct": 0.0143,
+    "elevation_m": 0.016,
+    "slope_deg": 0.0149,
+    "drainage_capacity_score": 0.1563,
+    "soil_saturation_pct": 0.1582,
+    "historical_flood_count": 0.0172,
+    "distance_to_river_m": 0.0203
   },
   "evaluation_metrics": {
-    "accuracy": 0.9583,
-    "precision": 1.0,
-    "recall": 0.5,
-    "f1_score": 0.6667,
-    "roc_auc": 0.9552,
+    "accuracy": 0.9877,
+    "precision": 0.9829,
+    "recall": 0.9606,
+    "f1_score": 0.9716,
+    "roc_auc": 0.9993,
     "confusion_matrix": [
       [
-        220,
-        0
+        2329,
+        11
       ],
       [
-        10,
-        10
+        26,
+        634
       ]
     ],
-    "dataset_size": 240,
-    "timestamp": "2026-09-11T15:20:23.858118+00:00"
+    "dataset_size": 15000,
+    "test_size": 3000,
+    "timestamp": "2026-09-30T20:48:22.262767+00:00"
   }
 }

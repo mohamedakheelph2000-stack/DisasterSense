@@ -44,11 +44,15 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center space-x-4">
-        {isDemoMode && (
-          <Badge variant="warning" className="hidden sm:inline-flex">
-            DEMO MODE
-          </Badge>
-        )}
+        <div className="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-surface-muted/60 border border-border text-xs text-foreground/80">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="font-semibold text-emerald-400">24/7 LIVE</span>
+          <span className="text-foreground/40">|</span>
+          <span className="text-[11px] text-foreground/60">Open-Meteo Telemetry</span>
+        </div>
         
         <Link href="/alerts" className="relative p-2 text-foreground/70 hover:text-foreground hover:bg-surface-muted rounded-full transition-colors">
           <Bell className="h-5 w-5" />

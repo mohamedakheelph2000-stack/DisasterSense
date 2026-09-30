@@ -298,7 +298,7 @@ export default function AnalyticsPage() {
                 <span className="font-medium">{quality.records_missing_coordinates}</span>
               </div>
               <div>
-                <span className="block text-foreground/60 mb-1">Demo Source Tags</span>
+                <span className="block text-foreground/60 mb-1">Simulated Tags</span>
                 <span className="font-medium">{quality.demo_records_count}</span>
               </div>
             </div>

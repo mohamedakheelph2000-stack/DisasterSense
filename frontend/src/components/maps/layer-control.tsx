@@ -2,7 +2,7 @@ import { Card } from "../ui/card";
 import { Layers, Clock } from "lucide-react";
 
 interface LayerControlProps {
-  layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; demo: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
+  layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; demo?: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
   onChange: (key: keyof LayerControlProps["layers"]) => void;
   timeWindow?: string;
   onTimeWindowChange?: (val: string) => void;
@@ -90,15 +90,6 @@ export function LayerControl({ layers, onChange, timeWindow, onTimeWindowChange 
               checked={layers.historical} 
               onChange={() => onChange("historical")}
               className="accent-purple-500 h-4 w-4 rounded border-border bg-surface"
-            />
-          </label>
-          <label className="flex items-center justify-between cursor-pointer group mb-2">
-            <span className="text-foreground/80 group-hover:text-foreground transition-colors">Demo Data</span>
-            <input 
-              type="checkbox" 
-              checked={layers.demo} 
-              onChange={() => onChange("demo")}
-              className="accent-gray-500 h-4 w-4 rounded border-border bg-surface"
             />
           </label>
         </div>

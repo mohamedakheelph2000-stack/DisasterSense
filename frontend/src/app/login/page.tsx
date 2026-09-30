@@ -97,9 +97,9 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Quick Demo Access Credentials */}
+          {/* Quick Role Login Credentials */}
           <div className="mt-6 pt-5 border-t border-white/10">
-            <p className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider text-center mb-3">Quick Demo Access (One-Click)</p>
+            <p className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider text-center mb-3">Quick Role Login (System Accounts)</p>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"

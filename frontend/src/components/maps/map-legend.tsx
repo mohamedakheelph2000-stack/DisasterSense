@@ -22,8 +22,8 @@ export function MapLegend() {
             <span>Predictive Grid Cell</span>
          </div>
          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full border-2 border-white bg-gray-500 shadow-[0_0_5px_var(--gray-500)]"></div>
-            <span>Demo Data</span>
+            <div className="w-3 h-3 rounded-full border-2 border-white bg-emerald-500 shadow-[0_0_5px_#10b981]"></div>
+            <span>Emergency Resource</span>
          </div>
       </div>
       <div className="text-[10px] text-foreground/50 leading-tight border-t border-border/30 pt-2">

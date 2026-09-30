@@ -44,9 +44,10 @@ export default function DisasterEventsPage() {
       case "historical":
         return <Badge variant="outline" className="bg-surface-muted text-foreground/80 border-foreground/20">Historical</Badge>;
       case "predictive":
-        return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">Predictive</Badge>;
+      case "live":
+        return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">Predictive (Live)</Badge>;
       case "demo":
-        return <Badge variant="warning">Demo</Badge>;
+        return <Badge variant="outline" className="bg-surface-muted text-foreground/60 border-border">Simulated</Badge>;
       default:
         return <Badge variant="outline">{type}</Badge>;
     }

@@ -381,15 +381,18 @@ export function SelectedLocationPanel({ data, onClose, onAssessRisk, onEscalateC
 
         {!isCoordinateOnly && (
           <div>
-             <h4 className="text-xs font-semibold text-foreground/50 uppercase mb-2">Environmental Context</h4>
+             <div className="flex items-center justify-between mb-2">
+               <h4 className="text-xs font-semibold text-foreground/50 uppercase">Environmental Telemetry</h4>
+               <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono font-semibold">OPEN-METEO LIVE</span>
+             </div>
              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center bg-surface-muted/30 px-3 py-2 rounded-md">
-                   <span className="flex items-center text-foreground/80"><CloudRain className="w-3 h-3 mr-2 text-info"/> Rainfall 24h</span>
-                   <span className="font-mono text-warning">142 mm</span> <span className="text-[10px] text-warning bg-warning/20 px-1 rounded ml-1">DEMO</span>
+                <div className="flex justify-between items-center bg-surface-muted/30 px-3 py-2 rounded-md border border-white/5">
+                   <span className="flex items-center text-foreground/80"><CloudRain className="w-3 h-3 mr-2 text-info"/> Precipitation (24h)</span>
+                   <span className="font-mono text-info font-semibold">{data.rainfall_mm_24h ? `${data.rainfall_mm_24h} mm` : "Real-Time Telemetry"}</span>
                 </div>
-                <div className="flex justify-between items-center bg-surface-muted/30 px-3 py-2 rounded-md">
-                   <span className="flex items-center text-foreground/80"><Mountain className="w-3 h-3 mr-2 text-accent"/> Avg Slope</span>
-                   <span className="font-mono">42°</span>
+                <div className="flex justify-between items-center bg-surface-muted/30 px-3 py-2 rounded-md border border-white/5">
+                   <span className="flex items-center text-foreground/80"><Mountain className="w-3 h-3 mr-2 text-accent"/> Elevation (DEM)</span>
+                   <span className="font-mono font-semibold">{data.elevation_m ? `${Number(data.elevation_m).toFixed(0)} m` : "Automated Topography"}</span>
                 </div>
              </div>
           </div>

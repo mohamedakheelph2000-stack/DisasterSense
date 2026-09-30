@@ -36,7 +36,6 @@ export default function MapPage() {
     landslide: true,
     events: true,
     historical: true,
-    demo: true,
     predictive: true,
     clusters: true,
     resources: true
@@ -49,31 +48,18 @@ export default function MapPage() {
     setLoading(true);
     setError(null);
     try {
-      if (API_CONFIG.IS_DEMO_MODE) {
-        const [locationsRes, eventsRes, spatialRes, clustersRes] = await Promise.all([
-          apiClient("/locations/map-data").catch(() => null),
-          apiClient("/events/recent").catch(() => []),
-          apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=demo`).catch(() => ({ cells: [] })),
-          apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=demo`).catch(() => ({ clusters: [] }))
-        ]);
-        if (locationsRes) setMapData(locationsRes);
-        setEvents(eventsRes as any);
-        setSpatialCells(spatialRes.cells || []);
-        setClusters(clustersRes.clusters || []);
-      } else {
-        const [locationsRes, eventsRes, resourcesRes, spatialRes, clustersRes] = await Promise.all([
-          apiClient<any>("/locations?page_size=100").catch(() => ({ items: [] })),
-          apiClient<any>("/disaster-events?page_size=100").catch(() => ({ items: [] })),
-          apiClient<any>("/resources?page_size=100").catch(() => ({ items: [] })),
-          apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ cells: [] })),
-          apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ clusters: [] }))
-        ]);
-        const transformed = buildMapData(locationsRes.items || [], eventsRes.items || []);
-        setMapData({ center: transformed.center, zoom: transformed.zoom, riskZones: transformed.riskZones, resources: resourcesRes.items || [] });
-        setEvents(transformed.events);
-        setSpatialCells(spatialRes.cells || []);
-        setClusters(clustersRes.clusters || []);
-      }
+      const [locationsRes, eventsRes, resourcesRes, spatialRes, clustersRes] = await Promise.all([
+        apiClient<any>("/locations?page_size=100").catch(() => ({ items: [] })),
+        apiClient<any>("/disaster-events?page_size=100").catch(() => ({ items: [] })),
+        apiClient<any>("/resources?page_size=100").catch(() => ({ items: [] })),
+        apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ cells: [] })),
+        apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ clusters: [] }))
+      ]);
+      const transformed = buildMapData(locationsRes.items || [], eventsRes.items || []);
+      setMapData({ center: transformed.center, zoom: transformed.zoom, riskZones: transformed.riskZones, resources: resourcesRes.items || [] });
+      setEvents(transformed.events);
+      setSpatialCells(spatialRes.cells || []);
+      setClusters(clustersRes.clusters || []);
     } catch (err: any) {
       setError(err.message || "Failed to load map data.");
     } finally {

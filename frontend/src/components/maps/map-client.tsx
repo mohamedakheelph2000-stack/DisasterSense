@@ -41,7 +41,7 @@ interface MapClientProps {
   spatialCells?: any[];
   clusters?: any[];
   resources?: any[];
-  layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; demo: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
+  layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; demo?: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
   onLocationSelect: (loc: any) => void;
   onMapClick?: (lat: number, lng: number) => void;
   searchedLocation: [number, number] | null;
@@ -102,7 +102,7 @@ function MapEventsHandler({ onMapClick }: { onMapClick?: (lat: number, lng: numb
 export default function MapClient({ center, zoom, riskZones, events, spatialCells, clusters, resources, layers, onLocationSelect, onMapClick, searchedLocation }: MapClientProps) {
   
   const getRiskColor = (level: string) => {
-    switch(level.toLowerCase()) {
+    switch((level || "").toLowerCase()) {
       case "critical": return "#ff0000";
       case "high": return "#f5a623";
       case "moderate": return "#f5e623";
@@ -128,10 +128,8 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
 
       <MapEventsHandler onMapClick={onMapClick} />
 
-      {/* Render Risk Zones (Left empty as real continuous spatial prediction is not available) */}
-      {riskZones.map((zone) => {
-        // We will only render this for Demo zones, as requested
-        if (!layers.demo) return null;
+      {/* Render Continuous Risk Zones if present */}
+      {riskZones && riskZones.map((zone) => {
         if (zone.type === "flood" && !layers.flood) return null;
         if (zone.type === "landslide" && !layers.landslide) return null;
         
@@ -140,19 +138,19 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
             key={zone.id}
             center={[zone.lat, zone.lng]}
             pathOptions={{ 
-              color: getRiskColor(zone.riskLevel), 
-              fillColor: getRiskColor(zone.riskLevel), 
-              fillOpacity: 0.2, 
-              weight: 1 
+              color: getRiskColor(zone.riskLevel || zone.severity), 
+              fillColor: getRiskColor(zone.riskLevel || zone.severity), 
+              fillOpacity: 0.25, 
+              weight: 1.5 
             }}
-            radius={zone.radius}
+            radius={zone.radius || 3000}
             eventHandlers={{
               click: () => onLocationSelect(zone)
             }}
           >
             <Popup className="dark-popup">
-              <div className="font-semibold">{zone.type.toUpperCase()} RISK (DEMO)</div>
-              <div>Level: <span style={{color: getRiskColor(zone.riskLevel)}}>{zone.riskLevel}</span></div>
+              <div className="font-semibold">{zone.type ? zone.type.toUpperCase() : "MONITORED"} RISK ZONE</div>
+              <div>Level: <span style={{color: getRiskColor(zone.riskLevel || zone.severity)}}>{zone.riskLevel || zone.severity}</span></div>
             </Popup>
           </Circle>
         );
@@ -162,13 +160,11 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
       {events.map((ev) => {
         const recordType = ev.record_type?.toLowerCase() || "predictive";
         const isHistorical = recordType === "historical";
-        const isDemo = recordType === "demo";
         const isPredictive = recordType === "predictive";
         
         // Filter based on layer settings
         if (isHistorical && !layers.historical) return null;
         if (isPredictive && !layers.predictive) return null;
-        if (isDemo && !layers.demo) return null;
 
         // Base hazard type filter
         if (ev.type === "flood" && !layers.flood) return null;
@@ -177,8 +173,6 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
         let currentIcon = landslideIcon;
         if (isHistorical) {
           currentIcon = createPulseIcon("#9c27b0"); // Purple for historical
-        } else if (isDemo) {
-          currentIcon = createPulseIcon("#555555"); // Grey for demo
         } else if (ev.severity === 'critical') {
           currentIcon = criticalIcon;
         } else if (ev.type === 'flood') {
@@ -196,7 +190,7 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
           >
             <Popup>
               <div className="font-semibold text-sm">
-                {isHistorical ? "HISTORICAL EVENT" : isDemo ? "DEMO DATA" : "PREDICTIVE RISK"}
+                {isHistorical ? "HISTORICAL EVENT" : "LIVE PREDICTIVE EVENT"}
               </div>
               <div className="text-xs text-foreground/80">{ev.location}</div>
             </Popup>

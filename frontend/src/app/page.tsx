@@ -38,75 +38,42 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      if (API_CONFIG.IS_DEMO_MODE) {
-        const [
-          flood,
-          landslide,
-          alertsData,
-          eventsData,
-          weatherData,
-          trendsData,
-          statusData,
-          clustersRes
-        ] = await Promise.all([
-          apiClient("/risk-assessments/flood").catch(() => null),
-          apiClient("/risk-assessments/landslide").catch(() => null),
-          apiClient("/alerts/active").catch(() => []),
-          apiClient("/events/recent").catch(() => []),
-          apiClient("/environment/current").catch(() => null),
-          apiClient("/analytics/trends").catch(() => []),
-          apiClient("/system/status").catch(() => null),
-          apiClient<any>("/spatial-risk/clusters?time_range=7d&record_type=demo").catch(() => null),
-        ]);
+      const [
+        floodEventsRes,
+        landslideEventsRes,
+        alertsRes,
+        recentEventsRes,
+        healthRes,
+        environmentRes,
+        trendsRes,
+        clustersRes
+      ] = await Promise.all([
+        apiClient<any>("/disaster-events?hazard_type=flood&page_size=1").catch(() => null),
+        apiClient<any>("/disaster-events?hazard_type=landslide&page_size=1").catch(() => null),
+        apiClient<any>("/alerts?status=active&page_size=10").catch(() => null),
+        apiClient<any>("/disaster-events?page_size=10").catch(() => null),
+        apiClient<any>("/health").catch(() => null),
+        apiClient<any>("/environment/current").catch(() => null),
+        apiClient<any>("/analytics/trends?days=14").catch(() => null),
+        apiClient<any>("/spatial-risk/clusters?time_range=7d&record_type=predictive").catch(() => null),
+      ]);
 
-        setData({
-          floodRisk: flood,
-          landslideRisk: landslide,
-          alerts: alertsData as any,
-          events: eventsData as any,
-          weather: weatherData,
-          trends: trendsData as any,
-          systemStatus: statusData,
-          clusters: clustersRes?.clusters || [],
-        });
-      } else {
-        const [
-          floodEventsRes,
-          landslideEventsRes,
-          alertsRes,
-          recentEventsRes,
-          healthRes,
-          environmentRes,
-          trendsRes,
-          clustersRes
-        ] = await Promise.all([
-          apiClient<any>("/disaster-events?hazard_type=flood&page_size=1").catch(() => null),
-          apiClient<any>("/disaster-events?hazard_type=landslide&page_size=1").catch(() => null),
-          apiClient<any>("/alerts?status=active&page_size=10").catch(() => null),
-          apiClient<any>("/disaster-events?page_size=10").catch(() => null),
-          apiClient<any>("/health").catch(() => null),
-          apiClient<any>("/environment/current").catch(() => null),
-          apiClient<any>("/analytics/trends?days=14").catch(() => null),
-          apiClient<any>("/spatial-risk/clusters?time_range=7d&record_type=predictive").catch(() => null),
-        ]);
+      const floodRisk = floodEventsRes?.items?.length > 0 ? eventToRiskCardData(floodEventsRes.items[0]) : null;
+      const landslideRisk = landslideEventsRes?.items?.length > 0 ? eventToRiskCardData(landslideEventsRes.items[0]) : null;
+      const alerts = (alertsRes?.items || []).map(alertToDashboardAlert);
+      const events = (recentEventsRes?.items || []).map((e: any) => eventToRecentEvent(e));
+      const systemStatus = healthRes ? healthToSystemStatus(healthRes) : null;
 
-        const floodRisk = floodEventsRes?.items?.length > 0 ? eventToRiskCardData(floodEventsRes.items[0]) : null;
-        const landslideRisk = landslideEventsRes?.items?.length > 0 ? eventToRiskCardData(landslideEventsRes.items[0]) : null;
-        const alerts = (alertsRes?.items || []).map(alertToDashboardAlert);
-        const events = (recentEventsRes?.items || []).map((e: any) => eventToRecentEvent(e));
-        const systemStatus = healthRes ? healthToSystemStatus(healthRes) : null;
-
-        setData({
-          floodRisk,
-          landslideRisk,
-          alerts,
-          events,
-          weather: environmentRes,
-          trends: trendsRes?.items || [],
-          systemStatus,
-          clusters: clustersRes?.clusters || [],
-        });
-      }
+      setData({
+        floodRisk,
+        landslideRisk,
+        alerts,
+        events,
+        weather: environmentRes,
+        trends: trendsRes?.items || [],
+        systemStatus,
+        clusters: clustersRes?.clusters || [],
+      });
     } catch (err: any) {
       setError(err.message || "Failed to load data.");
     } finally {

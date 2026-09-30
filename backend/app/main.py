@@ -41,6 +41,18 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
+from app.services.telemetry_worker import telemetry_worker
+
+@app.on_event("startup")
+async def on_startup():
+    """Start 24/7 background telemetry ingestion worker."""
+    telemetry_worker.start()
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """Gracefully terminate background tasks."""
+    telemetry_worker.stop()
+
 
 # ── Exception Handlers ────────────────────────────────────────────────────────
 from fastapi.responses import JSONResponse
