@@ -67,7 +67,7 @@ class Alert(Base):
     cluster_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     severity: Mapped[SeverityLevel | None] = mapped_column(
-        Enum(SeverityLevel),
+        Enum(SeverityLevel, name="severitylevel", values_callable=lambda obj: [e.value for e in obj]),
         nullable=True,
         doc="Operator-assigned severity during escalation or override. Falls back to disaster_event.severity if null."
     )
@@ -78,7 +78,7 @@ class Alert(Base):
 
     # ── State ───────────────────────────────────────────────────────────────────
     status: Mapped[AlertStatus] = mapped_column(
-        Enum(AlertStatus, name="alertstatus"),
+        Enum(AlertStatus, name="alertstatus", values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default=AlertStatus.ACTIVE,
         index=True,

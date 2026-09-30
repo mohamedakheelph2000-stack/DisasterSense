@@ -55,12 +55,12 @@ export function LayerControl({ layers, onChange, timeWindow, onTimeWindowChange 
           />
         </label>
         <label className="flex items-center justify-between cursor-pointer group">
-          <span className="text-foreground/80 group-hover:text-foreground transition-colors text-success">Resources (Unavailable)</span>
+          <span className="text-foreground/80 group-hover:text-foreground transition-colors text-success">Emergency Resources</span>
           <input 
             type="checkbox" 
             checked={layers.resources} 
             onChange={() => onChange("resources")}
-            className="accent-success h-4 w-4 rounded border-border bg-surface opacity-50"
+            className="accent-success h-4 w-4 rounded border-border bg-surface"
           />
         </label>
         <div className="border-t border-border/30 pt-2 mt-2">

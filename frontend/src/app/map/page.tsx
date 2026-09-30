@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DisasterMap } from "@/components/maps/disaster-map";
 import { MapLegend } from "@/components/maps/map-legend";
@@ -39,7 +39,7 @@ export default function MapPage() {
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [searchedCoords, setSearchedCoords] = useState<[number, number] | null>(null);
 
-  const fetchMapData = async () => {
+  const fetchMapData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -73,11 +73,11 @@ export default function MapPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeWindow]);
 
   useEffect(() => {
     fetchMapData();
-  }, [timeWindow]);
+  }, [fetchMapData]);
 
   const handleLayerChange = (layer: keyof typeof layers) => {
     setLayers(prev => ({ ...prev, [layer]: !prev[layer] }));

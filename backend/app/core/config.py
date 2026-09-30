@@ -53,8 +53,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        """Return CORS_ORIGINS as a Python list."""
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+        """Return CORS_ORIGINS as a Python list without trailing slashes."""
+        return [origin.strip().rstrip("/") for origin in self.CORS_ORIGINS.split(",")]
 
 
 # Module-level singleton — import this everywhere.

@@ -171,3 +171,25 @@ def get_provider_status(
 ):
     """Return the current automatic weather provider status."""
     return risk_assessment_service.AutomaticWeatherProvider.get_status()
+
+
+@router.post("/predict-flood", include_in_schema=False)
+def predict_flood_alias(
+    request: FloodAssessmentRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+    mode: str = "manual",
+):
+    return assess_flood_risk(request, background_tasks, db, current_user, mode)
+
+
+@router.post("/predict-landslide", include_in_schema=False)
+def predict_landslide_alias(
+    request: LandslideAssessmentRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+    mode: str = "manual",
+):
+    return assess_landslide_risk(request, background_tasks, db, current_user, mode)

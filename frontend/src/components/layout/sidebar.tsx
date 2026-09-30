@@ -8,7 +8,9 @@ import {
   ShieldAlert,
   Settings,
   BarChart2,
-  Server
+  Server,
+  Building2,
+  Database
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePathname } from "next/navigation";
@@ -67,6 +69,11 @@ export function Sidebar() {
           <Activity className="h-5 w-5" />
           <span>{isResponder ? "Risk Intelligence" : "Risk Assessment"}</span>
         </Link>
+
+        <Link href="/resources" className={getLinkClass("/resources")}>
+          <Building2 className="h-5 w-5" />
+          <span>Emergency Resources</span>
+        </Link>
         
         <Link href="/analytics" className={getLinkClass("/analytics")}>
           <BarChart2 className="h-5 w-5" />
@@ -78,19 +85,26 @@ export function Sidebar() {
           <span>Disaster Events</span>
         </Link>
         
-        {isAdmin && (
+        {isResponder && (
           <>
-            <Link href="/system" className={getLinkClass("/system")}>
-              <Server className="h-5 w-5" />
-              <span>System</span>
-            </Link>
+            <p className="px-2 text-xs font-semibold text-foreground/40 uppercase tracking-wider mt-6 mb-2">Intelligence</p>
             <Link href="/ml-intelligence" className={getLinkClass("/ml-intelligence")}>
               <Activity className="h-5 w-5" />
               <span>ML Intelligence</span>
             </Link>
             <Link href="/data-governance" className={getLinkClass("/data-governance")}>
-              <LayoutDashboard className="h-5 w-5" />
+              <Database className="h-5 w-5" />
               <span>Data Governance</span>
+            </Link>
+          </>
+        )}
+
+        {isAdmin && (
+          <>
+            <p className="px-2 text-xs font-semibold text-foreground/40 uppercase tracking-wider mt-4 mb-2">Administration</p>
+            <Link href="/system" className={getLinkClass("/system")}>
+              <Server className="h-5 w-5" />
+              <span>System Telemetry</span>
             </Link>
           </>
         )}

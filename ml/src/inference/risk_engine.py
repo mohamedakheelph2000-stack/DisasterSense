@@ -65,7 +65,17 @@ class RiskEngine:
     3. Heuristic Models (fallback rules)
     """
 
-    def __init__(self, models_dir: str = "ml/models"):
+    def __init__(self, models_dir: Optional[str] = None):
+        if models_dir is None:
+            default_rel = "ml/models"
+            if os.path.exists(default_rel):
+                models_dir = default_rel
+            else:
+                fallback_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models"))
+                if os.path.exists(fallback_path):
+                    models_dir = fallback_path
+                else:
+                    models_dir = default_rel
         self.models_dir = models_dir
         self.experiments_dir = os.path.join(models_dir, "experiments")
         
