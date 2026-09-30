@@ -17,12 +17,18 @@ import { useAuth } from "@/lib/auth/auth-context";
 
 export default function MapPage() {
   const { user } = useAuth();
-  const [mapData, setMapData] = useState<any>(null);
+  const [mapData, setMapData] = useState<any>({
+    center: [11.552, 76.124],
+    zoom: 9,
+    riskZones: [],
+    resources: []
+  });
   const [events, setEvents] = useState<any[]>([]);
   const [spatialCells, setSpatialCells] = useState<any[]>([]);
   const [clusters, setClusters] = useState<any[]>([]);
   const [timeWindow, setTimeWindow] = useState("7d");
   const [loading, setLoading] = useState(true);
+  const [assessing, setAssessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [layers, setLayers] = useState({
@@ -50,15 +56,15 @@ export default function MapPage() {
           apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=demo`).catch(() => ({ cells: [] })),
           apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=demo`).catch(() => ({ clusters: [] }))
         ]);
-        setMapData(locationsRes);
+        if (locationsRes) setMapData(locationsRes);
         setEvents(eventsRes as any);
         setSpatialCells(spatialRes.cells || []);
         setClusters(clustersRes.clusters || []);
       } else {
         const [locationsRes, eventsRes, resourcesRes, spatialRes, clustersRes] = await Promise.all([
-          apiClient<any>("/locations").catch(() => ({ items: [] })),
-          apiClient<any>("/disaster-events").catch(() => ({ items: [] })),
-          apiClient<any>("/resources").catch(() => ({ items: [] })),
+          apiClient<any>("/locations?page_size=100").catch(() => ({ items: [] })),
+          apiClient<any>("/disaster-events?page_size=100").catch(() => ({ items: [] })),
+          apiClient<any>("/resources?page_size=100").catch(() => ({ items: [] })),
           apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ cells: [] })),
           apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ clusters: [] }))
         ]);
@@ -100,7 +106,7 @@ export default function MapPage() {
 
   const handleRunAssessment = async (hazard: "flood" | "landslide") => {
     if (!selectedLocation || !selectedLocation.isCoordinateOnly) return;
-    setLoading(true);
+    setAssessing(true);
     try {
       const response = await apiClient<any>(`/risk-assessments/${hazard}?mode=automatic`, {
         method: "POST",
@@ -128,7 +134,7 @@ export default function MapPage() {
       console.error(err);
       alert(err.message || "Failed to run risk assessment.");
     } finally {
-      setLoading(false);
+      setAssessing(false);
     }
   };
 
@@ -166,24 +172,28 @@ export default function MapPage() {
     <AppShell>
       <FadeIn className="h-[calc(100vh-6rem)] relative -mx-4 md:-mx-8 -mt-4 md:-mt-8 rounded-none md:rounded-tl-2xl overflow-hidden border-t border-l border-white/5 shadow-2xl">
         
-        {/* The Leaflet Map */}
-        {!loading && mapData ? (
-          <DisasterMap 
-            center={mapData.center}
-            zoom={mapData.zoom}
-            riskZones={mapData.riskZones}
-            events={events}
-            spatialCells={spatialCells}
-            clusters={clusters}
-            layers={layers}
-            onLocationSelect={setSelectedLocation}
-            onMapClick={handleMapClick}
-            searchedLocation={searchedCoords}
-          />
-        ) : (
-          <div className="h-full w-full bg-[#1a1a1a] flex items-center justify-center flex-col animate-pulse">
-            <div className="w-12 h-12 rounded-full border-4 border-surface border-t-primary animate-spin mb-4" />
-            <p className="text-foreground/70 text-sm font-medium tracking-widest uppercase">Processing</p>
+        {/* The Leaflet Map - always mounted */}
+        <DisasterMap 
+          center={mapData.center}
+          zoom={mapData.zoom}
+          riskZones={mapData.riskZones}
+          events={events}
+          spatialCells={spatialCells}
+          clusters={clusters}
+          resources={mapData.resources || []}
+          layers={layers}
+          onLocationSelect={setSelectedLocation}
+          onMapClick={handleMapClick}
+          searchedLocation={searchedCoords}
+        />
+
+        {/* Syncing / Assessing indicator (non-destructive) */}
+        {(loading || assessing) && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[450] pointer-events-none">
+            <div className="px-4 py-1.5 glass rounded-full flex items-center gap-2 text-xs font-semibold text-primary shadow-xl border border-primary/30 animate-pulse bg-surface/80 backdrop-blur-md">
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              <span>{assessing ? "RUNNING AI PREDICTION..." : "SYNCING GIS TELEMETRY..."}</span>
+            </div>
           </div>
         )}
 

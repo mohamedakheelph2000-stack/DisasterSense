@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Circle, Rectangle, useMap, Popup } from "react-leaflet";
 import L from "leaflet";
 
@@ -51,13 +51,40 @@ import { useMapEvents } from "react-leaflet";
 
 function MapController({ center, zoom, searchedLocation }: { center: [number, number], zoom: number, searchedLocation: [number, number] | null }) {
   const map = useMap();
+  const hasInitialized = useRef(false);
+
   useEffect(() => {
-    if (searchedLocation) {
-      map.flyTo(searchedLocation, 12, { duration: 1.5 });
-    } else {
+    map.invalidateSize();
+    const container = map.getContainer();
+    if (!container) return;
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      resizeObserver.observe(container);
+    }
+
+    const timer1 = setTimeout(() => map.invalidateSize(), 150);
+    const timer2 = setTimeout(() => map.invalidateSize(), 600);
+
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [map]);
+
+  useEffect(() => {
+    if (searchedLocation && searchedLocation.length === 2 && !isNaN(searchedLocation[0]) && !isNaN(searchedLocation[1])) {
+      map.flyTo(searchedLocation, 12, { duration: 1.2 });
+    } else if (!hasInitialized.current && center && center.length === 2 && !isNaN(center[0]) && !isNaN(center[1])) {
       map.setView(center, zoom);
+      hasInitialized.current = true;
     }
   }, [center, zoom, searchedLocation, map]);
+
   return null;
 }
 
@@ -93,6 +120,8 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        subdomains="abcd"
+        maxZoom={19}
       />
       
       <MapController center={center} zoom={zoom} searchedLocation={searchedLocation} />
@@ -138,7 +167,7 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
         
         // Filter based on layer settings
         if (isHistorical && !layers.historical) return null;
-        if (isPredictive) return null; // We use spatial grid cells for predictive data now
+        if (isPredictive && !layers.predictive) return null;
         if (isDemo && !layers.demo) return null;
 
         // Base hazard type filter

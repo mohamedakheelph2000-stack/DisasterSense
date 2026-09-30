@@ -306,16 +306,20 @@ export function SelectedLocationPanel({ data, onClose, onAssessRisk, onEscalateC
 
   const isCoordinateOnly = data.isCoordinateOnly;
   const isEvent = !!data.severity && !isCoordinateOnly;
+  const rawLat = data.lat ?? data.latitude ?? data.centroid_lat ?? 0;
+  const rawLng = data.lng ?? data.longitude ?? data.centroid_lon ?? 0;
+  const displayLat = typeof rawLat === "number" ? rawLat : parseFloat(rawLat) || 0;
+  const displayLng = typeof rawLng === "number" ? rawLng : parseFloat(rawLng) || 0;
   
   return (
     <Card variant="glass" className="w-80 h-full flex flex-col shadow-2xl rounded-none md:rounded-xl border-l-0 md:border-l">
       <CardHeader className="border-b border-border/50 pb-3">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg mb-1 uppercase tracking-wider">{data.location || `${data.type} Risk Zone`}</CardTitle>
+            <CardTitle className="text-lg mb-1 uppercase tracking-wider">{data.location || `${data.type || "Disaster"} Risk Zone`}</CardTitle>
             <div className="flex items-center space-x-2 text-xs text-foreground/50 font-mono">
               <Navigation className="w-3 h-3" />
-              <span>{data.lat.toFixed(3)}, {data.lng.toFixed(3)}</span>
+              <span>{displayLat.toFixed(3)}, {displayLng.toFixed(3)}</span>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-surface-muted text-foreground/50 hover:text-foreground">

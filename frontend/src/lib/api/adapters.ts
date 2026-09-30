@@ -130,35 +130,44 @@ export function buildMapData(
   locations: any[],
   events: any[]
 ): { center: [number, number]; zoom: number; riskZones: any[]; events: any[] } {
-  // Default center: India (Kerala region)
-  let center: [number, number] = [11.605, 76.083];
-  const zoom = 10;
+  const safeLocations = Array.isArray(locations) ? locations : [];
+  const safeEvents = Array.isArray(events) ? events : [];
+
+  // Default center: Western Ghats / Kerala monitoring focal point
+  let center: [number, number] = [11.552, 76.124];
+  const zoom = 9;
 
   // Create a lookup map for location coordinates
   const locationMap = new Map<number, any>();
-  for (const loc of locations) {
-    locationMap.set(loc.id, loc);
+  for (const loc of safeLocations) {
+    if (loc && loc.id) {
+      locationMap.set(loc.id, loc);
+    }
   }
 
-  // Update center to first available location
-  if (locations.length > 0) {
-    center = [locations[0].latitude, locations[0].longitude];
+  // Update center to first available location if valid
+  if (safeLocations.length > 0 && safeLocations[0].latitude && safeLocations[0].longitude) {
+    center = [safeLocations[0].latitude, safeLocations[0].longitude];
   }
 
   // Build event markers
-  const eventMarkers = events
+  const eventMarkers = safeEvents
     .map((event) => {
+      if (!event) return null;
       const loc = locationMap.get(event.location_id);
-      if (!loc) return null;
+      const lat = event.lat ?? event.latitude ?? loc?.latitude;
+      const lng = event.lng ?? event.longitude ?? loc?.longitude;
+      if (lat === undefined || lng === undefined || isNaN(Number(lat)) || isNaN(Number(lng))) return null;
+
       return {
         id: event.id,
-        type: event.hazard_type,
-        severity: event.severity,
-        title: `${event.hazard_type.toUpperCase()} Event`,
-        location: loc.name,
-        lat: loc.latitude,
-        lng: loc.longitude,
-        record_type: event.record_type,
+        type: event.hazard_type || event.type || "flood",
+        severity: event.severity || "moderate",
+        title: `${(event.hazard_type || event.type || "disaster").toUpperCase()} Event`,
+        location: loc?.name || event.location || `Coordinate (${Number(lat).toFixed(2)}, ${Number(lng).toFixed(2)})`,
+        lat: Number(lat),
+        lng: Number(lng),
+        record_type: event.record_type || "predictive",
         data_source: event.data_source,
         source_reference: event.source_reference,
         risk_score: event.risk_score,

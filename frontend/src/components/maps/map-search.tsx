@@ -10,10 +10,30 @@ export function MapSearch({ onSearch }: MapSearchProps) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.toLowerCase().includes("wayanad")) {
-      onSearch([11.605, 76.083]);
-    } else if (query.toLowerCase().includes("munnar")) {
-      onSearch([10.088, 77.059]);
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return;
+
+    // Check if input is lat, lon numbers (e.g. "11.55, 76.12" or "11.55 76.12")
+    const coordMatch = trimmed.match(/^([-+]?[0-9]*\.?[0-9]+)[\s,]+([-+]?[0-9]*\.?[0-9]+)$/);
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1]);
+      const lng = parseFloat(coordMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        onSearch([lat, lng]);
+        return;
+      }
+    }
+
+    if (trimmed.includes("wayanad") || trimmed.includes("meppadi") || trimmed.includes("chooralmala")) {
+      onSearch([11.552, 76.124]);
+    } else if (trimmed.includes("munnar") || trimmed.includes("idukki") || trimmed.includes("pettimudi")) {
+      onSearch([10.158, 77.016]);
+    } else if (trimmed.includes("malappuram") || trimmed.includes("kavalappara") || trimmed.includes("nilambur")) {
+      onSearch([11.275, 76.241]);
+    } else if (trimmed.includes("chengannur") || trimmed.includes("alappuzha") || trimmed.includes("pamba")) {
+      onSearch([9.317, 76.616]);
+    } else if (trimmed.includes("aluva") || trimmed.includes("ernakulam") || trimmed.includes("periyar")) {
+      onSearch([10.107, 76.351]);
     }
   };
 
