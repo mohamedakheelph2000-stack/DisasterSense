@@ -43,6 +43,7 @@ export default function MapPage() {
 
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [searchedCoords, setSearchedCoords] = useState<[number, number] | null>(null);
+  const [baseMap, setBaseMap] = useState<"google_hybrid" | "google_terrain" | "google_streets" | "osm">("google_hybrid");
 
   const fetchMapData = useCallback(async () => {
     setLoading(true);
@@ -171,6 +172,8 @@ export default function MapPage() {
           onLocationSelect={setSelectedLocation}
           onMapClick={handleMapClick}
           searchedLocation={searchedCoords}
+          baseMap={baseMap}
+          onBaseMapChange={setBaseMap}
         />
 
         {/* Syncing / Assessing indicator (non-destructive) */}
@@ -189,7 +192,47 @@ export default function MapPage() {
         </div>
 
         <div className="absolute top-4 right-4 z-[400]">
-           <LayerControl layers={layers} onChange={handleLayerChange} timeWindow={timeWindow} onTimeWindowChange={setTimeWindow} />
+           <LayerControl 
+             layers={layers} 
+             onChange={handleLayerChange} 
+             timeWindow={timeWindow} 
+             onTimeWindowChange={setTimeWindow} 
+             baseMap={baseMap}
+             onBaseMapChange={setBaseMap}
+           />
+        </div>
+
+        {/* Floating Quick Basemap Selector Bar on Map */}
+        <div className="absolute bottom-6 left-6 z-[400] hidden sm:flex items-center bg-surface/90 backdrop-blur-md border border-border/80 rounded-xl p-1.5 shadow-2xl space-x-1">
+          <span className="text-[11px] font-bold text-foreground/50 uppercase tracking-wider px-2">Live Map:</span>
+          <button
+            type="button"
+            onClick={() => setBaseMap("google_hybrid")}
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${baseMap === "google_hybrid" ? "bg-primary text-primary-foreground shadow" : "text-foreground/70 hover:text-foreground hover:bg-surface-muted"}`}
+          >
+            🛰️ Google Satellite
+          </button>
+          <button
+            type="button"
+            onClick={() => setBaseMap("google_terrain")}
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${baseMap === "google_terrain" ? "bg-primary text-primary-foreground shadow" : "text-foreground/70 hover:text-foreground hover:bg-surface-muted"}`}
+          >
+            🏔️ Google Terrain
+          </button>
+          <button
+            type="button"
+            onClick={() => setBaseMap("google_streets")}
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${baseMap === "google_streets" ? "bg-primary text-primary-foreground shadow" : "text-foreground/70 hover:text-foreground hover:bg-surface-muted"}`}
+          >
+            🗺️ Google Roadmap
+          </button>
+          <button
+            type="button"
+            onClick={() => setBaseMap("osm")}
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${baseMap === "osm" ? "bg-primary text-primary-foreground shadow" : "text-foreground/70 hover:text-foreground hover:bg-surface-muted"}`}
+          >
+            🌐 OpenStreetMap
+          </button>
         </div>
 
         <div className="absolute bottom-4 right-4 z-[400] hidden md:block">

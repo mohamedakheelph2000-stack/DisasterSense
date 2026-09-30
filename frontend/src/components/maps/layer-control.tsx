@@ -1,16 +1,61 @@
 import { Card } from "../ui/card";
-import { Layers, Clock } from "lucide-react";
+import { Layers, Clock, Globe } from "lucide-react";
+import { BaseMapType } from "./map-client";
 
 interface LayerControlProps {
   layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; demo?: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
   onChange: (key: keyof LayerControlProps["layers"]) => void;
   timeWindow?: string;
   onTimeWindowChange?: (val: string) => void;
+  baseMap?: BaseMapType;
+  onBaseMapChange?: (bm: BaseMapType) => void;
 }
 
-export function LayerControl({ layers, onChange, timeWindow, onTimeWindowChange }: LayerControlProps) {
+export function LayerControl({ layers, onChange, timeWindow, onTimeWindowChange, baseMap = "google_hybrid", onBaseMapChange }: LayerControlProps) {
   return (
     <Card variant="glass" className="p-4 w-56 shadow-xl">
+      {/* Base Map Style Selector */}
+      <div className="mb-4">
+        <div className="flex items-center space-x-2 text-foreground/80 font-semibold mb-2 border-b border-border/50 pb-2">
+          <Globe className="h-4 w-4 text-primary" />
+          <span>Base Map</span>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 text-xs">
+          <button
+            type="button"
+            onClick={() => onBaseMapChange?.("google_hybrid")}
+            className={`px-2 py-1.5 rounded text-left transition-colors flex items-center gap-1.5 ${baseMap === "google_hybrid" ? "bg-primary text-primary-foreground font-semibold shadow" : "bg-surface-muted hover:bg-surface text-foreground/80"}`}
+          >
+            <span>🛰️</span>
+            <span>Hybrid</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onBaseMapChange?.("google_terrain")}
+            className={`px-2 py-1.5 rounded text-left transition-colors flex items-center gap-1.5 ${baseMap === "google_terrain" ? "bg-primary text-primary-foreground font-semibold shadow" : "bg-surface-muted hover:bg-surface text-foreground/80"}`}
+          >
+            <span>🏔️</span>
+            <span>Terrain</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onBaseMapChange?.("google_streets")}
+            className={`px-2 py-1.5 rounded text-left transition-colors flex items-center gap-1.5 ${baseMap === "google_streets" ? "bg-primary text-primary-foreground font-semibold shadow" : "bg-surface-muted hover:bg-surface text-foreground/80"}`}
+          >
+            <span>🗺️</span>
+            <span>Roadmap</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onBaseMapChange?.("osm")}
+            className={`px-2 py-1.5 rounded text-left transition-colors flex items-center gap-1.5 ${baseMap === "osm" ? "bg-primary text-primary-foreground font-semibold shadow" : "bg-surface-muted hover:bg-surface text-foreground/80"}`}
+          >
+            <span>🌐</span>
+            <span>OSM</span>
+          </button>
+        </div>
+      </div>
+
       {timeWindow && onTimeWindowChange && (
         <div className="mb-4">
           <div className="flex items-center space-x-2 text-foreground/80 font-semibold mb-2 border-b border-border/50 pb-2">

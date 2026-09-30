@@ -33,6 +33,39 @@ const createClusterIcon = (colorHex: string) => L.divIcon({
   iconAnchor: [16, 16]
 });
 
+export type BaseMapType = "google_hybrid" | "google_terrain" | "google_streets" | "osm";
+
+export const BASEMAP_CONFIGS: Record<BaseMapType, { name: string; url: string; subdomains?: string[]; attribution: string; maxZoom: number }> = {
+  google_hybrid: {
+    name: "Google Satellite Hybrid",
+    url: "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    subdomains: ["0", "1", "2", "3"],
+    attribution: "&copy; Google Maps",
+    maxZoom: 20
+  },
+  google_terrain: {
+    name: "Google Terrain",
+    url: "https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
+    subdomains: ["0", "1", "2", "3"],
+    attribution: "&copy; Google Maps",
+    maxZoom: 20
+  },
+  google_streets: {
+    name: "Google Roadmap",
+    url: "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+    subdomains: ["0", "1", "2", "3"],
+    attribution: "&copy; Google Maps",
+    maxZoom: 20
+  },
+  osm: {
+    name: "OpenStreetMap",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    subdomains: ["a", "b", "c"],
+    attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+    maxZoom: 19
+  }
+};
+
 interface MapClientProps {
   center: [number, number];
   zoom: number;
@@ -45,6 +78,8 @@ interface MapClientProps {
   onLocationSelect: (loc: any) => void;
   onMapClick?: (lat: number, lng: number) => void;
   searchedLocation: [number, number] | null;
+  baseMap?: BaseMapType;
+  onBaseMapChange?: (bm: BaseMapType) => void;
 }
 
 import { useMapEvents } from "react-leaflet";
@@ -99,7 +134,7 @@ function MapEventsHandler({ onMapClick }: { onMapClick?: (lat: number, lng: numb
   return null;
 }
 
-export default function MapClient({ center, zoom, riskZones, events, spatialCells, clusters, resources, layers, onLocationSelect, onMapClick, searchedLocation }: MapClientProps) {
+export default function MapClient({ center, zoom, riskZones, events, spatialCells, clusters, resources, layers, onLocationSelect, onMapClick, searchedLocation, baseMap = "google_hybrid", onBaseMapChange }: MapClientProps) {
   
   const getRiskColor = (level: string) => {
     switch((level || "").toLowerCase()) {
@@ -110,6 +145,9 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
     }
   };
 
+  const activeBaseMap = baseMap || "google_hybrid";
+  const mapConfig = BASEMAP_CONFIGS[activeBaseMap] || BASEMAP_CONFIGS.google_hybrid;
+
   return (
     <MapContainer 
       center={center} 
@@ -118,10 +156,11 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
       zoomControl={false} // We will use custom or just default at bottom right later
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        subdomains="abcd"
-        maxZoom={19}
+        key={activeBaseMap}
+        attribution={mapConfig.attribution}
+        url={mapConfig.url}
+        subdomains={mapConfig.subdomains || ["a", "b", "c"]}
+        maxZoom={mapConfig.maxZoom}
       />
       
       <MapController center={center} zoom={zoom} searchedLocation={searchedLocation} />
