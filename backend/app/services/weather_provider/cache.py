@@ -33,6 +33,7 @@ class SimpleTTLMemoryCache:
             self._cache.clear()
 
 
+import os
 # Singletons for different caching concerns
-weather_cache = SimpleTTLMemoryCache(ttl_seconds=3600)  # 1 hour
+weather_cache = SimpleTTLMemoryCache(ttl_seconds=int(os.getenv("WEATHER_CACHE_TTL_SECONDS", "60")))  # 60s for rapid telemetry refresh
 elevation_cache = SimpleTTLMemoryCache(ttl_seconds=86400 * 30)  # 30 days (elevation rarely changes)

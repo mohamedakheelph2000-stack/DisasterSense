@@ -40,7 +40,7 @@ class TelemetryWorker:
     Asynchronous 24/7 background worker for real-time telemetry polling & ML risk monitoring.
     """
 
-    def __init__(self, poll_interval_seconds: int = 900):  # Default 15 minutes
+    def __init__(self, poll_interval_seconds: int = 60):  # 60 seconds (1 minute live polling)
         self.poll_interval_seconds = poll_interval_seconds
         self._running = False
         self._task: Optional[asyncio.Task] = None
@@ -239,5 +239,5 @@ class TelemetryWorker:
         }
 
 
-# Global singleton worker instance
-telemetry_worker = TelemetryWorker(poll_interval_seconds=900)
+# Global singleton worker instance (defaults to 60 seconds)
+telemetry_worker = TelemetryWorker(poll_interval_seconds=int(os.getenv("TELEMETRY_POLL_INTERVAL_SECONDS", "60")))
