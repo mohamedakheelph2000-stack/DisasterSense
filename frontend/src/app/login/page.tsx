@@ -92,10 +92,41 @@ export default function LoginPage() {
               />
             </div>
 
-            <Button type="submit" className="w-full mt-2 py-6" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Authenticate"}
+            <Button type="submit" className="w-full mt-2 py-6 text-base font-semibold shadow-lg hover:shadow-primary/30 transition-all" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Enter Command Center"}
             </Button>
           </form>
+
+          {/* Quick Demo Access Credentials */}
+          <div className="mt-6 pt-5 border-t border-white/10">
+            <p className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider text-center mb-3">Quick Demo Access (One-Click)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { setEmail("admin@disastersense.org"); setPassword("Password123!"); }}
+                className="py-2 px-2.5 bg-surface/80 hover:bg-surface-muted text-foreground/80 hover:text-foreground rounded-lg border border-white/10 transition-all flex flex-col items-center justify-center text-center group hover:border-primary/50"
+              >
+                <span className="font-bold text-xs text-primary group-hover:scale-105 transition-transform">Admin</span>
+                <span className="text-[10px] text-foreground/50 mt-0.5">Full System</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail("responder@disastersense.org"); setPassword("Password123!"); }}
+                className="py-2 px-2.5 bg-surface/80 hover:bg-surface-muted text-foreground/80 hover:text-foreground rounded-lg border border-white/10 transition-all flex flex-col items-center justify-center text-center group hover:border-warning/50"
+              >
+                <span className="font-bold text-xs text-warning group-hover:scale-105 transition-transform">Responder</span>
+                <span className="text-[10px] text-foreground/50 mt-0.5">Operations</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail("citizen@disastersense.org"); setPassword("Password123!"); }}
+                className="py-2 px-2.5 bg-surface/80 hover:bg-surface-muted text-foreground/80 hover:text-foreground rounded-lg border border-white/10 transition-all flex flex-col items-center justify-center text-center group hover:border-success/50"
+              >
+                <span className="font-bold text-xs text-success group-hover:scale-105 transition-transform">Citizen</span>
+                <span className="text-[10px] text-foreground/50 mt-0.5">Monitoring</span>
+              </button>
+            </div>
+          </div>
 
           <div className="mt-6 text-center text-sm text-foreground/60">
             Don&apos;t have an account?{" "}

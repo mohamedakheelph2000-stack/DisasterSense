@@ -125,12 +125,7 @@ export default function Dashboard() {
 
   return (
     <AppShell>
-      {loading && !error && !data.systemStatus ? (
-         <div className="h-[80vh] flex flex-col items-center justify-center">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-            <p className="text-foreground/50 tracking-wider uppercase text-sm font-medium">Initializing Workspace</p>
-         </div>
-      ) : role === "citizen" ? (
+      {role === "citizen" ? (
         <CitizenDashboard 
           data={data} 
           loading={loading} 
