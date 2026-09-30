@@ -3,8 +3,8 @@ import { Layers, Clock, Globe } from "lucide-react";
 import { BaseMapType } from "./map-client";
 
 interface LayerControlProps {
-  layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; demo?: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
-  onChange: (key: keyof LayerControlProps["layers"]) => void;
+  layers: { flood: boolean; landslide: boolean; events: boolean; historical: boolean; predictive: boolean; clusters?: boolean; resources: boolean };
+  onChange: (key: any) => void;
   timeWindow?: string;
   onTimeWindowChange?: (val: string) => void;
   baseMap?: BaseMapType;

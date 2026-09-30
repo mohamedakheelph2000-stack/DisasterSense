@@ -5,6 +5,7 @@
 *.pem
 *.key
 *.crt
+*.tar.gz
 
 # JavaScript and Next.js
 node_modules/
