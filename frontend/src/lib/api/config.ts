@@ -1,15 +1,13 @@
 const isBrowser = typeof window !== "undefined";
-const isLocalhost = isBrowser && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
 export const API_CONFIG = {
-  // Use environment variables for base URLs, default to local development backend
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1",
+  // When running in the browser, default to relative '/api/v1' so requests route through
+  // the Next.js reverse proxy (enabling Cloudflare Tunnel access with zero CORS or mixed-content issues).
+  // When running on the Next.js server, use the local backend directly.
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || (isBrowser ? "/api/v1" : "http://127.0.0.1:8000/api/v1"),
   
-  // In demo mode, the client uses realistic simulated telemetry and safe offline data.
-  // Defaults to true whenever no public external backend URL is configured.
-  IS_DEMO_MODE: 
-    process.env.NEXT_PUBLIC_DEMO_MODE === "true" ||
-    (!process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_DEMO_MODE !== "false"),
+  // Real backend mode by default unless explicitly configured as demo.
+  IS_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
 };
 
 export function useConfig() {
