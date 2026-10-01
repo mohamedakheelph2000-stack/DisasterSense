@@ -17,8 +17,8 @@ export function MapPreview() {
       .catch(console.error);
   }, []);
 
-  const criticalCells = data ? data.cells.filter(c => c.risk_category === "Critical").length : 0;
-  const highCells = data ? data.cells.filter(c => c.risk_category === "High").length : 0;
+  const criticalCells = data?.cells ? data.cells.filter(c => c?.risk_category === "Critical" || (c as any)?.severity === "critical").length : 0;
+  const highCells = data?.cells ? data.cells.filter(c => c?.risk_category === "High" || (c as any)?.severity === "high").length : 0;
 
   return (
     <Card variant="glass" className="h-[400px] md:h-full relative overflow-hidden flex flex-col group border-white/10">
@@ -62,7 +62,7 @@ export function MapPreview() {
               </div>
               <div className="flex justify-between text-sm bg-surface-muted px-2 py-1 rounded">
                 <span>Total Active Cells</span>
-                <span className="font-bold">{data.aggregation_metadata.total_cells}</span>
+                <span className="font-bold">{data.aggregation_metadata?.total_cells ?? (data.cells?.length || 0)}</span>
               </div>
             </div>
           ) : (

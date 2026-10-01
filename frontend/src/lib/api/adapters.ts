@@ -10,7 +10,8 @@
  * Parse severity level from an auto-generated alert title.
  * Backend generates titles like "CRITICAL Flood Risk Detected".
  */
-export function parseSeverityFromTitle(title: string): string {
+export function parseSeverityFromTitle(title?: string): string {
+  if (!title || typeof title !== "string") return "info";
   const match = title.match(/^(CRITICAL|HIGH|MODERATE|LOW)\s/i);
   return match ? match[1].toLowerCase() : "info";
 }
@@ -18,7 +19,8 @@ export function parseSeverityFromTitle(title: string): string {
 /**
  * Parse hazard type from an auto-generated alert title.
  */
-export function parseHazardFromTitle(title: string): string {
+export function parseHazardFromTitle(title?: string): string {
+  if (!title || typeof title !== "string") return "unknown";
   const match = title.match(/^(?:CRITICAL|HIGH|MODERATE|LOW)\s+(Flood|Landslide)/i);
   return match ? match[1].toLowerCase() : "unknown";
 }

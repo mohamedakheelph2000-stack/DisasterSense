@@ -87,6 +87,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
+  // Prevent flash or execution of protected dashboard components before auth is resolved
+  if (loading && !PUBLIC_ROUTES.includes(pathname)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-xs text-foreground/60 font-mono tracking-wider">INITIALIZING COMMAND CENTER...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && !PUBLIC_ROUTES.includes(pathname)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-xs text-foreground/60 font-mono tracking-wider">REDIRECTING TO SECURE LOGIN...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout }}>
       {children}

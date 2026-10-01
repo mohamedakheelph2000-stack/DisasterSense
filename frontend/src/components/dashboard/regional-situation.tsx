@@ -40,17 +40,17 @@ export function RegionalSituation({ clusters = [] }: { clusters: any[] }) {
                        {cluster.hazard_type}
                      </Badge>
                      <span className="text-xs text-foreground/50 font-mono">
-                       {cluster.centroid_lat.toFixed(2)}, {cluster.centroid_lon.toFixed(2)}
+                       {cluster.centroid_lat != null && cluster.centroid_lon != null ? `${Number(cluster.centroid_lat).toFixed(2)}, ${Number(cluster.centroid_lon).toFixed(2)}` : "Regional"}
                      </span>
                    </div>
                    <div className="flex justify-between text-sm">
                      <span className="text-foreground/70">Avg Risk</span>
-                     <span className="font-bold font-mono">{cluster.average_risk}</span>
+                     <span className="font-bold font-mono">{cluster.average_risk ?? "N/A"}</span>
                    </div>
                    <div className="flex justify-between text-xs text-foreground/50">
-                     <span>{cluster.member_count} Members</span>
+                     <span>{cluster.member_count ?? 0} Members</span>
                      <span className={cluster.quality_indicator === "WELL_SUPPORTED" ? "text-success" : "text-primary"}>
-                       {cluster.quality_indicator.replace('_', ' ')}
+                       {(cluster.quality_indicator || "ACTIVE").replace('_', ' ')}
                      </span>
                    </div>
                 </div>
