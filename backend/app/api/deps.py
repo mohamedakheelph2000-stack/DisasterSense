@@ -20,6 +20,28 @@ from app.services.user_service import user_service
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_PREFIX}/auth/login"
 )
+reusable_oauth2_optional = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_PREFIX}/auth/login",
+    auto_error=False
+)
+
+
+def get_current_user_optional(
+    db: Session = Depends(get_db),
+    token: str | None = Depends(reusable_oauth2_optional),
+) -> User | None:
+    """Optional authentication for public preview & read operations."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+        user = user_service.get_by_id(db, user_id=int(token_data.sub))
+        return user if (user and user.is_active) else None
+    except Exception:
+        return None
 
 
 def get_current_user(

@@ -478,3 +478,44 @@ def escalate_cluster(
         escalation_status="SUCCESS",
         notification_status=notification_status
     )
+
+
+# ── Kerala Real-Time Live Disaster & News Feeds ─────────────────────────────────
+
+@router.get("/kerala-live", summary="Get Kerala Real-Time Disaster & Risk Radar")
+def get_kerala_live_risk(
+    date: Optional[str] = Query(None, description="Filter by date YYYY-MM-DD"),
+):
+    """
+    Returns real-time risk assessment, 24/7 weather telemetry, and matched news
+    bulletins for all 14 vulnerable Kerala districts. Synchronized on a 10s cadence.
+    """
+    from app.services.kerala_live_ingestion import kerala_ingestion_service
+    if not kerala_ingestion_service.cached_locations_state:
+        kerala_ingestion_service.sync_now()
+    return kerala_ingestion_service.get_summary(selected_date=date)
+
+
+@router.get("/kerala-news", summary="Get Live Kerala Disaster News & KSDMA Bulletins")
+def get_kerala_disaster_news():
+    """
+    Returns real-time disaster alerts, government bulletins, and headlines
+    from KSDMA, IMD Kerala, and online news wires.
+    """
+    from app.services.kerala_live_ingestion import kerala_ingestion_service
+    return {
+        "items": kerala_ingestion_service.fetch_online_news(),
+        "total": len(kerala_ingestion_service.cached_news),
+        "source": "KSDMA & Online News Wires"
+    }
+
+
+@router.post("/kerala-sync", summary="Trigger Immediate 10s Kerala Data Refresh")
+def trigger_kerala_sync():
+    """
+    Forces an immediate 10-second data ingestion cycle from online news,
+    government bulletins, and Open-Meteo sensors.
+    """
+    from app.services.kerala_live_ingestion import kerala_ingestion_service
+    return kerala_ingestion_service.sync_now()
+

@@ -12,8 +12,18 @@ export function TopBar() {
   const { isDemoMode } = useConfig();
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState<Date | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Real-time ticking clock (1-second precision)
+  useEffect(() => {
+    setCurrentDateTime(new Date());
+    const interval = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -31,27 +41,54 @@ export function TopBar() {
     logout();
   };
 
+  const formattedDate = currentDateTime
+    ? currentDateTime.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+
+  const formattedTime = currentDateTime
+    ? currentDateTime.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      })
+    : "";
+
   return (
     <header className="h-16 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50">
-      <div className="flex items-center">
-        <button className="md:hidden mr-4 text-foreground/70 hover:text-foreground">
+      <div className="flex items-center space-x-4">
+        <button className="md:hidden mr-2 text-foreground/70 hover:text-foreground">
           <Menu className="h-6 w-6" />
         </button>
         <div className="flex items-center space-x-2">
           <Cpu className="h-4 w-4 text-success" />
-          <span className="text-sm font-medium text-foreground/70">SYSTEM_OPERATIONAL</span>
+          <span className="text-sm font-medium text-foreground/70 hidden sm:inline">SYSTEM_OPERATIONAL</span>
         </div>
+
+        {/* Live Date and Time Clock */}
+        {currentDateTime && (
+          <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-surface-muted/80 border border-border/80 text-xs">
+            <span className="text-foreground/70 font-medium">{formattedDate}</span>
+            <span className="text-border">|</span>
+            <span className="font-mono font-bold text-primary tracking-wider">{formattedTime}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center space-x-4">
-        <div className="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-surface-muted/60 border border-border text-xs text-foreground/80">
+        <div className="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="font-semibold text-emerald-400">24/7 LIVE</span>
-          <span className="text-foreground/40">|</span>
-          <span className="text-[11px] text-foreground/60">Open-Meteo Telemetry</span>
+          <span className="font-semibold">KERALA LIVE RADAR</span>
+          <span className="text-emerald-500/40">|</span>
+          <span className="text-[11px] text-emerald-300/80">10s Sync (KSDMA &amp; Weather)</span>
         </div>
         
         <Link href="/alerts" className="relative p-2 text-foreground/70 hover:text-foreground hover:bg-surface-muted rounded-full transition-colors">

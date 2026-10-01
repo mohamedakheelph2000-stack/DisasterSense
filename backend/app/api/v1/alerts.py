@@ -75,7 +75,7 @@ def list_alerts(
     location_id: Optional[int] = Query(None, description="Filter by location ID"),
     disaster_event_id: Optional[int] = Query(None, description="Filter by disaster event ID"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User | None = Depends(deps.get_current_user_optional),
 ):
     """Return paginated alerts."""
     skip = (page - 1) * page_size

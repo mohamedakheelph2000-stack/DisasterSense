@@ -64,10 +64,20 @@ def list_disaster_events(
     location_id: Optional[int] = Query(None, description="Filter by location ID"),
     start_time: Optional[datetime] = Query(None, description="Filter events after this time"),
     end_time: Optional[datetime] = Query(None, description="Filter events before this time"),
+    date: Optional[str] = Query(None, description="Filter by specific date YYYY-MM-DD (e.g. 2026-10-01)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User | None = Depends(deps.get_current_user_optional),
 ):
     """Return paginated disaster events with optional filters."""
+    if date:
+        try:
+            from datetime import timezone, timedelta
+            dt = datetime.strptime(date.strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            start_time = dt
+            end_time = dt + timedelta(days=1) - timedelta(microseconds=1)
+        except ValueError:
+            pass
+
     skip = (page - 1) * page_size
     items, total = disaster_event_service.list_disaster_events(
         db,

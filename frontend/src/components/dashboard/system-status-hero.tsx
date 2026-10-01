@@ -28,6 +28,13 @@ function StatusIndicator({ label, status, icon: Icon }: StatusIndicatorProps) {
 
 export function SystemStatusHero() {
   const [telemetryInfo, setTelemetryInfo] = useState<any>(null);
+  const [currentDateTime, setCurrentDateTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setCurrentDateTime(new Date());
+    const clockTimer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+    return () => clearInterval(clockTimer);
+  }, []);
 
   useEffect(() => {
     apiClient<any>("/system/telemetry-worker")
@@ -35,27 +42,46 @@ export function SystemStatusHero() {
       .catch(() => null);
   }, []);
 
+  const formattedDateTime = currentDateTime
+    ? currentDateTime.toLocaleString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      })
+    : "";
+
   return (
     <FadeIn direction="up">
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 py-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 py-4 mb-4">
         <div>
-          <div className="flex items-center space-x-3 mb-2">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
               Command Center
             </h1>
-            <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-semibold px-2.5 py-0.5 flex items-center gap-1.5">
+            <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-semibold px-2.5 py-1 flex items-center gap-1.5 text-xs">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              24/7 LIVE TELEMETRY
+              10s LIVE STREAM
             </Badge>
+
+            {formattedDateTime && (
+              <Badge variant="outline" className="border-border bg-surface-muted/80 text-foreground/80 font-mono text-xs px-2.5 py-1">
+                ⏰ {formattedDateTime}
+              </Badge>
+            )}
           </div>
-          <p className="text-foreground/60 text-lg">
-            AI-Powered Disaster Intelligence Platform &bull; Real-Time Open-Meteo Telemetry
+          <p className="text-foreground/60 text-sm md:text-base">
+            AI-Powered Disaster Intelligence Platform &bull; Real-Time Kerala Disasters, Online News &amp; Sensor Telemetry
             {telemetryInfo?.locations_monitored && (
               <span className="text-xs text-emerald-400 ml-2 font-mono">
-                ({telemetryInfo.locations_monitored} locations streaming live)
+                ({telemetryInfo.locations_monitored} active stations)
               </span>
             )}
           </p>
