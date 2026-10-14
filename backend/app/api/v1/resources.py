@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_user_optional
 from app.core.database import get_db
 from app.models.emergency_resource import EmergencyResource, ResourceType, VerificationStatus
 from app.schemas.emergency_resource import (
@@ -76,7 +76,7 @@ def get_resources(
     longitude: float | None = Query(None, ge=-180.0, le=180.0),
     radius_km: float | None = Query(None, ge=0.1, le=500.0),
     db: Session = Depends(get_db),
-    user: Any = Depends(get_current_user)
+    user: Any = Depends(get_current_user_optional)
 ):
     """
     Retrieve verified emergency resources.
@@ -129,7 +129,7 @@ def get_resources(
     )
 
 @router.get("/emergency-numbers", summary="Universal emergency phone numbers")
-def get_emergency_numbers(user: Any = Depends(get_current_user)) -> Dict[str, Any]:
+def get_emergency_numbers(user: Any = Depends(get_current_user_optional)) -> Dict[str, Any]:
     """All-India emergency numbers — available even when external feeds are down."""
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -148,7 +148,7 @@ def get_nearby_resources(
         description="Comma separated resource types. Defaults to hospital, ambulance, police_station, fire_station.",
     ),
     db: Session = Depends(get_db),
-    user: Any = Depends(get_current_user),
+    user: Any = Depends(get_current_user_optional),
 ) -> Any:
     if types:
         wanted: List[ResourceType] = []

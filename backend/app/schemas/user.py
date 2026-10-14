@@ -12,8 +12,9 @@ Naming convention:
 """
 
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.models.user import UserRole
 
@@ -45,6 +46,14 @@ class UserCreate(UserBase):
 
     plain_password: str = Field(..., min_length=8, max_length=128)
 
+    @model_validator(mode="before")
+    @classmethod
+    def accept_password_alias(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "plain_password" not in data and "password" in data:
+                data["plain_password"] = data["password"]
+        return data
+
     @field_validator("plain_password")
     @classmethod
     def password_must_not_be_trivial(cls, v: str) -> str:
@@ -70,6 +79,14 @@ class UserRegister(BaseModel):
     email_enabled: bool = True
     sms_enabled: bool = False
 
+    @model_validator(mode="before")
+    @classmethod
+    def accept_password_alias(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "plain_password" not in data and "password" in data:
+                data["plain_password"] = data["password"]
+        return data
+
     @field_validator("plain_password")
     @classmethod
     def password_must_not_be_trivial(cls, v: str) -> str:
@@ -85,9 +102,18 @@ class UserRegister(BaseModel):
         if not v:
             return None
         import re
-        cleaned = re.sub(r"\s+", "", v)
+        cleaned = re.sub(r"[\s\-\(\)]+", "", v)
+        if not cleaned:
+            return None
+        if cleaned.startswith("0") and len(cleaned) == 11 and cleaned[1:].isdigit():
+            cleaned = "+91" + cleaned[1:]
+        elif len(cleaned) == 10 and cleaned.isdigit():
+            cleaned = "+91" + cleaned
+        elif not cleaned.startswith("+"):
+            cleaned = "+" + cleaned
+
         if not re.match(r"^\+[1-9]\d{1,14}$", cleaned):
-            raise ValueError("Phone number must follow E.164 format (e.g., +1234567890)")
+            raise ValueError("Phone number must follow E.164 format (e.g., +919876543210)")
         return cleaned
 
 

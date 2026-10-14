@@ -9,6 +9,8 @@ $WorkspaceRoot = "d:\DisasterSense"
 $BackendDir = Join-Path $WorkspaceRoot "backend"
 $FrontendDir = Join-Path $WorkspaceRoot "frontend"
 $PythonExe = Join-Path $WorkspaceRoot ".venv\Scripts\python.exe"
+$ScratchDir = Join-Path $WorkspaceRoot "scratch"
+if (-not (Test-Path $ScratchDir)) { New-Item -ItemType Directory -Path $ScratchDir -Force | Out-Null }
 
 # 1. Verify PostgreSQL Service & Clean up previous runs
 Write-Host "[1/4] Checking PostgreSQL database and ports..." -ForegroundColor Yellow
@@ -20,10 +22,11 @@ if ($pgService -and $pgService.Status -ne "Running") {
 }
 Write-Host "PostgreSQL is active on port 5432." -ForegroundColor Green
 
-# Ensure ports 8000 and 3000 are free
+# Ensure ports 8000 and 3000 and old cloudflared are free
 Get-NetTCPConnection -LocalPort 8000, 3000 -ErrorAction SilentlyContinue | ForEach-Object {
     Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
 }
+Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 500
 
 # 2. Start FastAPI Backend
@@ -44,23 +47,28 @@ $frontendProcess = Start-Process -FilePath "cmd.exe" `
 
 Start-Sleep -Seconds 3
 
+# Function to spawn cloudflared with http2
+function Start-CloudflareTunnel {
+    $pInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $pInfo.FileName = "cloudflared"
+    $pInfo.Arguments = "tunnel --protocol http2 --url http://127.0.0.1:3000"
+    $pInfo.RedirectStandardError = $true
+    $pInfo.RedirectStandardOutput = $true
+    $pInfo.UseShellExecute = $false
+    $pInfo.CreateNoWindow = $true
+
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $pInfo
+    $p.Start() | Out-Null
+    return $p
+}
+
 # 4. Start Cloudflare Tunnel
 Write-Host "[4/4] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
-
-$tunnelUrl = $null
-$cfProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-$cfProcessInfo.FileName = "cloudflared"
-$cfProcessInfo.Arguments = "tunnel --url http://127.0.0.1:3000"
-$cfProcessInfo.RedirectStandardError = $true
-$cfProcessInfo.RedirectStandardOutput = $true
-$cfProcessInfo.UseShellExecute = $false
-$cfProcessInfo.CreateNoWindow = $true
-
-$cfProcess = New-Object System.Diagnostics.Process
-$cfProcess.StartInfo = $cfProcessInfo
-$cfProcess.Start() | Out-Null
+$cfProcess = Start-CloudflareTunnel
 
 # Scan output for the generated trycloudflare.com URL
+$tunnelUrl = $null
 $startTime = Get-Date
 while (-not $tunnelUrl -and ((Get-Date) - $startTime).TotalSeconds -lt 25) {
     Start-Sleep -Milliseconds 500
@@ -74,6 +82,7 @@ while (-not $tunnelUrl -and ((Get-Date) - $startTime).TotalSeconds -lt 25) {
 }
 
 if ($tunnelUrl) {
+    Set-Content -Path (Join-Path $WorkspaceRoot "scratch\live_url.txt") -Value $tunnelUrl -Force
     Write-Host ""
     Write-Host "================================================================================" -ForegroundColor Green
     Write-Host "                   DISASTERSENSE IS LIVE & READY TO SHARE!                      " -ForegroundColor Green
@@ -96,17 +105,33 @@ if ($tunnelUrl) {
     Write-Host "  Keep this window open while testing. Press Ctrl+C to stop all servers." -ForegroundColor Magenta
     Write-Host "================================================================================" -ForegroundColor Green
 
-    # Keep alive until user interrupts or cloudflared exits
+    # Keep alive loop: monitor and restart cloudflared if it ever stops, keeping backend/frontend active
     try {
-        while (-not $cfProcess.HasExited) {
-            Start-Sleep -Seconds 1
+        while ($true) {
+            if ($cfProcess.HasExited) {
+                Write-Host "Cloudflare tunnel disconnected. Reconnecting..." -ForegroundColor Yellow
+                $cfProcess = Start-CloudflareTunnel
+                $startTime = Get-Date
+                while (((Get-Date) - $startTime).TotalSeconds -lt 20) {
+                    Start-Sleep -Milliseconds 500
+                    while (-not $cfProcess.StandardError.EndOfStream) {
+                        $line = $cfProcess.StandardError.ReadLine()
+                        if ($line -match "https://[a-zA-Z0-9-]+\.trycloudflare\.com") {
+                            $tunnelUrl = $Matches[0]
+                            Set-Content -Path (Join-Path $WorkspaceRoot "scratch\live_url.txt") -Value $tunnelUrl -Force
+                            Write-Host "Reconnected! New live link: $tunnelUrl" -ForegroundColor Cyan
+                            break
+                        }
+                    }
+                }
+            }
+            Start-Sleep -Seconds 2
         }
     } finally {
         Write-Host "Shutting down services..." -ForegroundColor Yellow
         if (-not $cfProcess.HasExited) { $cfProcess.Kill() }
         if (-not $frontendProcess.HasExited) { Stop-Process -Id $frontendProcess.Id -Force -ErrorAction SilentlyContinue }
         if (-not $backendProcess.HasExited) { Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue }
-        # Kill lingering node or uvicorn processes if any
         Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
 } else {

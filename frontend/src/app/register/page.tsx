@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowRight, ShieldCheck, Smartphone, Mail } from "lucide-react";
+import { Loader2, ArrowRight, ShieldCheck, Smartphone, Mail, Eye, EyeOff } from "lucide-react";
 import { apiClient, errorMessage } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(false);
   const [error, setError] = useState("");
@@ -43,9 +45,21 @@ export default function RegisterPage() {
       setError("That password is too common. Choose a stronger one.");
       return;
     }
-    if (phone && !E164.test(phone.replace(/\s+/g, ""))) {
-      setError("Phone number must be in international E.164 format, e.g. +919876543210.");
-      return;
+
+    let cleanPhone = phone ? phone.replace(/[\s\-()]+/g, "") : "";
+    if (cleanPhone) {
+      if (cleanPhone.startsWith("0") && cleanPhone.length === 11 && /^\d+$/.test(cleanPhone)) {
+        cleanPhone = "+91" + cleanPhone.slice(1);
+      } else if (cleanPhone.length === 10 && /^\d+$/.test(cleanPhone)) {
+        cleanPhone = "+91" + cleanPhone;
+      } else if (!cleanPhone.startsWith("+")) {
+        cleanPhone = "+" + cleanPhone;
+      }
+
+      if (!E164.test(cleanPhone)) {
+        setError("Phone number must follow international format, e.g. +919876543210 or 10-digit mobile.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -56,7 +70,7 @@ export default function RegisterPage() {
           email: email.trim(),
           full_name: fullName.trim(),
           plain_password: password,
-          phone_number: phone ? phone.replace(/\s+/g, "") : null,
+          phone_number: cleanPhone || null,
           email_enabled: emailEnabled,
           sms_enabled: smsEnabled,
         }),
@@ -122,7 +136,7 @@ export default function RegisterPage() {
         <div>
           <label htmlFor="reg-phone" className="mb-1.5 block text-xs font-medium text-foreground/75">
             Mobile number{" "}
-            <span className="font-normal text-muted-foreground">(optional, for SMS alerts)</span>
+            <span className="font-normal text-muted-foreground">(optional, e.g. 9876543210)</span>
           </label>
           <Input
             id="reg-phone"
@@ -137,21 +151,57 @@ export default function RegisterPage() {
         </div>
 
         <div>
-          <label htmlFor="reg-password" className="mb-1.5 block text-xs font-medium text-foreground/75">
-            Password
-          </label>
-          <Input
-            id="reg-password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="At least 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            maxLength={128}
-            disabled={isSubmitting}
-          />
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="reg-password" className="block text-xs font-medium text-foreground/75">
+              Password
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <>
+                  <EyeOff className="h-3 w-3" />
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" />
+                  <span>Show</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="relative">
+            <Input
+              id="reg-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              maxLength={128}
+              disabled={isSubmitting}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none"
+              title={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <div className="flex h-1 flex-1 gap-1">
               {[0, 1, 2, 3].map((i) => (
@@ -175,19 +225,55 @@ export default function RegisterPage() {
         </div>
 
         <div>
-          <label htmlFor="reg-confirm" className="mb-1.5 block text-xs font-medium text-foreground/75">
-            Confirm password
-          </label>
-          <Input
-            id="reg-confirm"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Repeat password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            disabled={isSubmitting}
-          />
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="reg-confirm" className="block text-xs font-medium text-foreground/75">
+              Confirm password
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showConfirm ? (
+                <>
+                  <EyeOff className="h-3 w-3" />
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" />
+                  <span>Show</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="relative">
+            <Input
+              id="reg-confirm"
+              type={showConfirm ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Repeat password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              disabled={isSubmitting}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none"
+              title={showConfirm ? "Hide password" : "Show password"}
+              aria-label={showConfirm ? "Hide password" : "Show password"}
+            >
+              {showConfirm ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
           {confirm && confirm !== password && (
             <p className="mt-1.5 text-[11px] text-danger">Passwords do not match.</p>
           )}

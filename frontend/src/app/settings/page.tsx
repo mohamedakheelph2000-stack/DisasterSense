@@ -59,14 +59,24 @@ export default function SettingsPage() {
     setFormError(null);
     setSaveSuccess(false);
 
+    let cleanPhone = preferences.phone_number ? preferences.phone_number.replace(/[\s\-()]+/g, "") : "";
+    if (cleanPhone) {
+      if (cleanPhone.startsWith("0") && cleanPhone.length === 11 && /^\d+$/.test(cleanPhone)) {
+        cleanPhone = "+91" + cleanPhone.slice(1);
+      } else if (cleanPhone.length === 10 && /^\d+$/.test(cleanPhone)) {
+        cleanPhone = "+91" + cleanPhone;
+      } else if (!cleanPhone.startsWith("+")) {
+        cleanPhone = "+" + cleanPhone;
+      }
+    }
+
     if (preferences.sms_enabled) {
-      const phone = preferences.phone_number.trim();
-      if (!phone) {
+      if (!cleanPhone) {
         setFormError("Enter a phone number before enabling SMS alerts.");
         return;
       }
-      if (!E164.test(phone.replace(/\s+/g, ""))) {
-        setFormError("Phone number must follow E.164 format (e.g., +1234567890).");
+      if (!E164.test(cleanPhone)) {
+        setFormError("Phone number must follow international format (e.g., +919876543210 or 10-digit mobile).");
         return;
       }
     }
@@ -75,7 +85,10 @@ export default function SettingsPage() {
     try {
       await apiClient("/users/me/preferences", {
         method: "PUT",
-        body: JSON.stringify(preferences),
+        body: JSON.stringify({
+          ...preferences,
+          phone_number: cleanPhone,
+        }),
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

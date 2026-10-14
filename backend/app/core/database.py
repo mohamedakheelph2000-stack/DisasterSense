@@ -25,8 +25,13 @@ engine = create_engine(
     settings.DATABASE_URL,
     # Echo SQL statements in development for easier debugging.
     echo=settings.DEBUG,
-    # Keep a reasonable pool size; tune for production later.
+    # Keep an active pre-ping check to discard dead sockets
     pool_pre_ping=True,
+    # Expand pool size to handle concurrent web and worker requests
+    pool_size=20,
+    max_overflow=20,
+    pool_recycle=300,
+    pool_timeout=30,
 )
 
 # ── Session factory ───────────────────────────────────────────────────────────

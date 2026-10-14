@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { Loader2, KeyRound, ArrowRight } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Loader2, KeyRound, ArrowRight, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { apiClient, errorMessage } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,13 @@ const SEEDED_ACCOUNTS = [
   { label: "Citizen", email: "citizen@disastersense.org", note: "Monitoring", tone: "text-success" },
 ] as const;
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const registered = searchParams.get("registered") === "1";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
@@ -59,6 +64,13 @@ export default function LoginPage() {
         </>
       }
     >
+      {registered && (
+        <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-success/30 bg-success/10 p-3 text-xs text-success">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>Account created successfully! Please sign in with your email and password.</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label
@@ -80,22 +92,58 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label
-            htmlFor="login-password"
-            className="mb-1.5 block text-xs font-medium text-foreground/75"
-          >
-            Password
-          </label>
-          <Input
-            id="login-password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={isSubmitting}
-          />
+          <div className="mb-1.5 flex items-center justify-between">
+            <label
+              htmlFor="login-password"
+              className="block text-xs font-medium text-foreground/75"
+            >
+              Password
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <>
+                  <EyeOff className="h-3 w-3" />
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" />
+                  <span>Show</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="relative">
+            <Input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isSubmitting}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none"
+              title={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         <FieldError message={error} />
@@ -151,6 +199,14 @@ export default function LoginPage() {
         </p>
       </div>
     </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <LoginForm />
+    </Suspense>
   );
 }
 
