@@ -233,7 +233,7 @@ export function AlertDetailPanel({ alert, open, onClose, onStatusChange }: Alert
               <div className="text-left space-y-4 pt-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={severity as any} className="uppercase">{severity} PRIORITY</Badge>
-                  <Badge variant="outline" className="uppercase opacity-70">{effective.status.replace(/_/g, ' ')}</Badge>
+                  <Badge variant="outline" className="uppercase opacity-70">{String(effective?.status ?? 'active').replace(/_/g, ' ')}</Badge>
                   {isPredictive && <Badge variant="outline" className="text-purple-400 border-purple-500/50">PREDICTIVE</Badge>}
                   {enriching && (
                     <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -379,7 +379,7 @@ export function AlertDetailPanel({ alert, open, onClose, onStatusChange }: Alert
                       <div key={log.id} className="relative pl-4">
                         <div className="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-primary" />
                         <div className="text-xs text-foreground/50">{new Date(log.timestamp).toLocaleString()} • {log.actor}</div>
-                        <div className="text-sm font-medium">{log.action.replace(/_/g, ' ')}</div>
+                        <div className="text-sm font-medium">{String(log.action ?? '').replace(/_/g, ' ')}</div>
                         {log.note && <div className="text-sm text-foreground/70 italic mt-1">&quot;{log.note}&quot;</div>}
                       </div>
                     ))}

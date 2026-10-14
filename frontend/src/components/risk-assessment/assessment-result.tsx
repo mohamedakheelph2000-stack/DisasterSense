@@ -101,7 +101,7 @@ export function AssessmentResult({ result }: AssessmentResultProps) {
              return (
                <div key={idx}>
                  <div className="flex justify-between text-sm mb-1">
-                   <span className="text-foreground/90 font-medium capitalize">{impact.feature.replace(/_/g, ' ')}</span>
+                   <span className="text-foreground/90 font-medium capitalize">{String(impact?.feature ?? '').replace(/_/g, ' ')}</span>
                    <span className="font-mono text-foreground/60">{pct}%</span>
                  </div>
                  <div className="flex items-center space-x-3">

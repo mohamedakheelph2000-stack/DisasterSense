@@ -63,12 +63,16 @@ export function IncidentQueue({ incidents, loading }: IncidentQueueProps) {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <Badge variant={severity as any} className="uppercase text-[10px]">{severity}</Badge>
-                    <Badge variant="outline" className="uppercase text-[10px] opacity-70">{incident.status.replace(/_/g, ' ')}</Badge>
+                    <Badge variant="outline" className="uppercase text-[10px] opacity-70">
+                      {String(incident.status ?? 'active').replace(/_/g, ' ')}
+                    </Badge>
                   </div>
                   <h4 className="font-semibold text-foreground/90">{incident.title}</h4>
                   <div className="flex items-center text-xs text-foreground/60 gap-3 mt-1">
-                    <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> {new Date(incident.created_at).toLocaleTimeString()}</span>
-                    <span>{incident.cluster_metadata?.location || `Loc ID: ${incident.location_id}`}</span>
+                    <span className="flex items-center">
+                      <Clock className="w-3 h-3 mr-1" /> {incident.created_at ? new Date(incident.created_at).toLocaleTimeString() : 'Live'}
+                    </span>
+                    <span>{incident.cluster_metadata?.location || (incident.location_id ? `Loc ID: ${incident.location_id}` : 'General')}</span>
                   </div>
                 </div>
                 <div className="flex items-center text-primary/70 hover:text-primary transition-colors text-sm font-medium">

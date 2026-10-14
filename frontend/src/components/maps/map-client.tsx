@@ -319,7 +319,7 @@ export default function MapClient({ center, zoom, riskZones, events, spatialCell
           >
             <Popup>
               <div className="font-semibold text-sm text-success">VERIFIED RESOURCE</div>
-              <div className="text-xs text-foreground/80 capitalize">{res.resource_type.replace('_', ' ')}</div>
+              <div className="text-xs text-foreground/80 capitalize">{String(res.resource_type ?? 'resource').replace(/_/g, ' ')}</div>
               <div className="text-xs text-foreground/80">{res.name}</div>
             </Popup>
           </Marker>

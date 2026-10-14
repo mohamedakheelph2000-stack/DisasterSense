@@ -212,7 +212,7 @@ export default function EmergencyResourcesPage() {
       default:
         return (
           <span className="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/20">
-            {type.replace("_", " ")}
+            {String(type ?? '').replace(/_/g, " ")}
           </span>
         );
     }

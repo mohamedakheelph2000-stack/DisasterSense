@@ -50,7 +50,7 @@ export function RegionalSituation({ clusters = [] }: { clusters: any[] }) {
                    <div className="flex justify-between text-xs text-foreground/50">
                      <span>{cluster.member_count ?? 0} Members</span>
                      <span className={cluster.quality_indicator === "WELL_SUPPORTED" ? "text-success" : "text-primary"}>
-                       {(cluster.quality_indicator || "ACTIVE").replace('_', ' ')}
+                       {String(cluster.quality_indicator ?? "ACTIVE").replace(/_/g, ' ')}
                      </span>
                    </div>
                 </div>

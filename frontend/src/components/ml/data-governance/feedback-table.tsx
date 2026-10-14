@@ -84,7 +84,7 @@ export default function FeedbackTable({ feedbacks, onRefresh, currentUserId }: {
                   <div className="text-xs text-muted-foreground uppercase">{f.hazard_type}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant="outline">{f.feedback_type.replace(/_/g, ' ')}</Badge>
+                  <Badge variant="outline">{String(f.feedback_type ?? '').replace(/_/g, ' ')}</Badge>
                   {f.observed_outcome && <div className="text-xs mt-1 max-w-[200px] truncate" title={f.observed_outcome}>{f.observed_outcome}</div>}
                 </td>
                 <td className="px-4 py-3">
@@ -92,7 +92,7 @@ export default function FeedbackTable({ feedbacks, onRefresh, currentUserId }: {
                     f.review_status === 'approved_ground_truth' ? 'default' :
                     f.review_status === 'rejected' ? 'danger' : 'secondary'
                   } className={f.review_status === 'approved_ground_truth' ? 'bg-success text-success-foreground' : ''}>
-                    {f.review_status.replace(/_/g, ' ')}
+                    {String(f.review_status ?? '').replace(/_/g, ' ')}
                   </Badge>
                 </td>
                 <td className="px-4 py-3">

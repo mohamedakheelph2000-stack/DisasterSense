@@ -415,7 +415,7 @@ function WarningCard({ warning }: { warning: WarningItem }) {
           <span className="hud-label mr-1">Sources</span>
           {warning.sources.map((source) => (
             <Badge key={source} variant="outline" className="font-mono text-[10px]">
-              {source.replace(/_/g, " ")}
+              {String(source ?? '').replace(/_/g, " ")}
             </Badge>
           ))}
         </div>

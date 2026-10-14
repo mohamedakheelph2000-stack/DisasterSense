@@ -86,12 +86,17 @@ export function eventToRecentEvent(event: any, locationName?: string): any {
  */
 export function alertToDashboardAlert(alert: any): any {
   return {
+    ...alert,
     id: alert.id,
     title: alert.title,
     message: alert.message,
-    severity: parseSeverityFromTitle(alert.title),
+    status: alert.status || "active",
+    severity: alert.severity || parseSeverityFromTitle(alert.title) || "info",
     time: formatRelativeTime(alert.created_at),
-    hazard_type: parseHazardFromTitle(alert.title),
+    hazard_type: alert.hazard_type || parseHazardFromTitle(alert.title),
+    location_id: alert.location_id,
+    cluster_metadata: alert.cluster_metadata,
+    created_at: alert.created_at,
   };
 }
 
