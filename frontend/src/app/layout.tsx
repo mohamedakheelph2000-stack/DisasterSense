@@ -12,7 +12,7 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: {
-    default: "DisasterSense · Operations Console",
+    default: "DisasterSense",
     template: "%s · DisasterSense",
   },
   description:
