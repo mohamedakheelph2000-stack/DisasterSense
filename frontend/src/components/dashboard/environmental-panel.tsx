@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
-import { CloudRain, Thermometer, Droplets, Mountain } from "lucide-react";
+import { CloudRain, Thermometer, Droplets, Mountain, ArrowRight, CloudSun } from "lucide-react";
 import { Badge } from "../ui/badge";
 
 interface EnvironmentalPanelProps {
@@ -22,11 +23,19 @@ export function EnvironmentalPanel({ data, loading }: EnvironmentalPanelProps) {
           <CloudRain className="h-5 w-5 text-info" />
           <span>Environmental Telemetry</span>
         </CardTitle>
-        {data.status && (
-          <Badge variant={data.status === "LIVE" ? "success" : data.status === "ERROR" ? "danger" : "default"}>
-            {data.status}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {data.status && (
+            <Badge variant={data.status === "LIVE" ? "success" : data.status === "ERROR" ? "danger" : "default"}>
+              {data.status}
+            </Badge>
+          )}
+          <Link
+            href="/weather"
+            className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1 ml-1"
+          >
+            <CloudSun className="w-3.5 h-3.5" /> Forecast <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">

@@ -23,6 +23,7 @@ from app.api.v1 import (
     ml,
     ml_governance,
     spatial_risk,
+    weather,
 )
 
 api_router = APIRouter()
@@ -51,3 +52,4 @@ api_router.include_router(ingestion.router)
 api_router.include_router(ml.router, prefix="/ml", tags=["ml"])
 api_router.include_router(ml_governance.router)
 api_router.include_router(spatial_risk.router)
+api_router.include_router(weather.router)

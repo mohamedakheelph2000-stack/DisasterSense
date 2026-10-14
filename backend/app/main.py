@@ -11,9 +11,17 @@ Interactive docs available at:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+_base_dir = Path(__file__).resolve().parent.parent
+load_dotenv(_base_dir / ".env")
+load_dotenv(_base_dir.parent / ".env")
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+
 
 # ── Application factory ───────────────────────────────────────────────────────
 app = FastAPI(

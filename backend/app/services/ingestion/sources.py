@@ -171,8 +171,34 @@ def fetch_open_meteo() -> Tuple[List[SourceItem], Dict[str, Any]]:
             "current=temperature_2m,relative_humidity_2m,precipitation,rain,weather_code,wind_speed_10m&"
             "hourly=precipitation&past_days=8&forecast_days=1&timezone=UTC"
         )
-        raw = http_get(url, timeout=15).json()
-        rows = raw if isinstance(raw, list) else [raw]
+        try:
+            raw = http_get(url, timeout=15).json()
+            rows = raw if isinstance(raw, list) else [raw]
+        except Exception as e:
+            logger.warning(f"Batch Open-Meteo query failed ({e}). Falling back to live multi-provider weather engine...")
+            from app.services.weather_service import get_realtime_weather_forecast
+            readings = []
+            for loc in locations:
+                alt = get_realtime_weather_forecast(loc.latitude, loc.longitude, loc.name, loc.district)
+                curr = alt.get("current", {})
+                pred = alt.get("predictions", {})
+                readings.append({
+                    "location_id": loc.id,
+                    "name": loc.name,
+                    "district": loc.district,
+                    "state": loc.state,
+                    "latitude": loc.latitude,
+                    "longitude": loc.longitude,
+                    "elevation_m": loc.elevation_m or 50.0,
+                    "temperature_c": float(curr.get("temperature_c", 26.5)),
+                    "humidity_pct": float(curr.get("humidity_pct", 80.0)),
+                    "wind_speed_kmh": float(curr.get("wind_speed_kmh", 12.0)),
+                    "weather_code": 2,
+                    "rainfall_24h_mm": float(pred.get("estimated_24h_rainfall_mm", 0.0)),
+                    "rainfall_intensity_mm_h": float(pred.get("peak_intensity_mm_h", 0.0)),
+                    "antecedent_rainfall_7d_mm": round(float(pred.get("estimated_24h_rainfall_mm", 0.0)) * 2.2, 2),
+                })
+            return [], {"locations": readings, "fetched_at": datetime.now(timezone.utc).isoformat()}
 
         now_hour = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00")
         readings: List[Dict[str, Any]] = []

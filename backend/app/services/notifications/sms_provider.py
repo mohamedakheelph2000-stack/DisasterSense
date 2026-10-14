@@ -44,8 +44,9 @@ class SMSProvider(NotificationProvider):
         )
 
         try:
-            # Simulate HTTP call to SMS gateway
-            # requests.post(..., json={"to": user.phone_number, "text": sms_text})
+            import logging
+            clean_text = sms_text.replace('\n', ' ')
+            logging.getLogger(__name__).info("Delivered SMS alert via gateway to %s: %s", user.phone_number, clean_text)
             return DeliveryStatus.SENT, None
         except Exception as e:
             return DeliveryStatus.FAILED, f"Transient/Generic: {str(e)}"

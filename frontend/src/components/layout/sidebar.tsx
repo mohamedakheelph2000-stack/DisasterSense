@@ -18,6 +18,7 @@ import {
   Radar,
   Siren,
   Rss,
+  CloudSun,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -42,6 +43,7 @@ const GROUPS: NavGroup[] = [
     heading: "Command",
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/weather", label: "Weather Forecast", icon: CloudSun },
       { href: "/warnings", label: "Warnings", icon: Siren },
       { href: "/map", label: "Live Map", icon: MapIcon },
       { href: "/alerts", label: "Incidents", icon: AlertTriangle },

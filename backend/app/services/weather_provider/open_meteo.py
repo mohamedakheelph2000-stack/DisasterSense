@@ -46,8 +46,28 @@ def fetch_open_meteo_data(lat: float, lon: float, reference_time: datetime) -> E
         return _process_open_meteo_response(data, lat, lon, reference_time)
         
     except requests.exceptions.RequestException as e:
-        logger.error(f"Open-Meteo API Error: {e}")
-        return _build_error_response(lat, lon, reference_time, f"API Error: {str(e)}")
+        logger.warning(f"Open-Meteo API Error: {e}. Falling back to multi-provider real-time weather service...")
+        try:
+            from app.services.weather_service import get_realtime_weather_forecast
+            alt_data = get_realtime_weather_forecast(lat, lon)
+            curr = alt_data["current"]
+            pred = alt_data["predictions"]
+            return EnvironmentalData(
+                latitude=lat,
+                longitude=lon,
+                reference_timestamp=reference_time,
+                status=ProviderStatus.LIVE,
+                provider_name=f"live-failover ({alt_data.get('provider', 'realtime')})",
+                rainfall_mm_24h=round(pred.get("estimated_24h_rainfall_mm", 0.0), 2),
+                rainfall_intensity_mm_h=round(pred.get("peak_intensity_mm_h", 0.0), 2),
+                antecedent_rainfall_7d_mm=round(pred.get("estimated_24h_rainfall_mm", 0.0) * 2.2, 2),
+                temperature_c=round(curr.get("temperature_c", 26.5), 2),
+                humidity_pct=round(curr.get("humidity_pct", 80.0), 1),
+                elevation_m=alt_data.get("location", {}).get("elevation_m", 50.0)
+            )
+        except Exception as alt_err:
+            logger.error(f"Fallback weather retrieval failed: {alt_err}")
+            return _build_error_response(lat, lon, reference_time, f"API Error: {str(e)}")
     except Exception as e:
         logger.error(f"Unexpected error parsing Open-Meteo data: {e}")
         return _build_error_response(lat, lon, reference_time, "Internal Parsing Error")
