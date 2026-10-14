@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Calendar, RefreshCw, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface DateFilterBarProps {
@@ -23,41 +23,29 @@ export function DateFilterBar({
   lastUpdated,
 }: DateFilterBarProps) {
   const [mounted, setMounted] = useState(false);
-  const [countdown, setCountdown] = useState(10);
   const isLive = !selectedDate;
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 10-second countdown timer for auto-refresh in Live mode
-  useEffect(() => {
-    if (!isLive) return;
-
-    setCountdown(10);
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          return 10;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isLive, lastSyncTime]);
-
   const todayStr = mounted ? new Date().toISOString().split("T")[0] : "";
   const yesterdayStr = mounted ? new Date(Date.now() - 86400000).toISOString().split("T")[0] : "";
 
+  const formattedUpdated = lastUpdated
+    ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : lastSyncTime
+      ? new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      : null;
+
   return (
-    <div className="bg-surface/80 border border-border/70 backdrop-blur-md rounded-2xl p-4 mb-6 shadow-lg transition-all">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Left: Mode Title & Quick Date Filters */}
+    <div className="mb-6 rounded-xl border border-border/70 bg-surface/50 p-3.5 backdrop-blur-sm transition-all">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Left: Quick Date Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-2 mr-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-sm text-foreground">Disaster Timeline:</span>
+          <div className="mr-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Calendar className="h-4 w-4 text-foreground/60" />
+            <span>Timeline:</span>
           </div>
 
           {/* Live Mode Toggle */}
@@ -65,17 +53,13 @@ export function DateFilterBar({
             size="sm"
             variant={isLive ? "default" : "outline"}
             onClick={() => onDateChange("")}
-            className={`rounded-full px-3 text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`h-8 rounded-lg px-3 text-xs font-medium transition-all ${
               isLive
-                ? "bg-success hover:bg-success/90 text-success-foreground shadow-sm"
-                : "border-border/80 hover:bg-surface-muted"
+                ? "bg-primary text-primary-foreground shadow-none hover:bg-primary/90"
+                : "border-border hover:bg-surface-muted text-foreground/75"
             }`}
           >
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isLive ? 'bg-white' : 'bg-success'} opacity-75`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${isLive ? 'bg-white' : 'bg-success'}`}></span>
-            </span>
-            Real-Time Live
+            Live
           </Button>
 
           {/* Today Button */}
@@ -84,9 +68,9 @@ export function DateFilterBar({
               size="sm"
               variant={selectedDate === todayStr ? "secondary" : "ghost"}
               onClick={() => onDateChange(todayStr)}
-              className="rounded-full px-3 text-xs"
+              className="h-8 rounded-lg px-3 text-xs font-medium text-foreground/75 hover:text-foreground"
             >
-              Today ({todayStr})
+              Today
             </Button>
           )}
 
@@ -96,43 +80,37 @@ export function DateFilterBar({
               size="sm"
               variant={selectedDate === yesterdayStr ? "secondary" : "ghost"}
               onClick={() => onDateChange(yesterdayStr)}
-              className="rounded-full px-3 text-xs"
+              className="h-8 rounded-lg px-3 text-xs font-medium text-foreground/75 hover:text-foreground"
             >
               Yesterday
             </Button>
           )}
 
           {/* Custom Date Picker */}
-          <div className="flex items-center space-x-1.5 bg-surface-muted/60 border border-border rounded-full px-3 py-1 text-xs">
-            <span className="text-foreground/60">Pick Date:</span>
+          <div className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface-muted/50 px-2.5 text-xs text-foreground/70">
+            <span className="text-[11px] text-muted-foreground">Date:</span>
             <input
               type="date"
               value={selectedDate}
               max={todayStr}
               onChange={(e) => onDateChange(e.target.value)}
-              className="bg-transparent text-foreground text-xs focus:outline-none cursor-pointer font-mono"
+              className="cursor-pointer bg-transparent font-mono text-xs text-foreground focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Right: Sync Status & Manual Refresh */}
-        <div className="flex items-center space-x-3 self-end lg:self-center">
+        {/* Right: Subtle Last Updated Timestamp & Refresh Button */}
+        <div className="flex items-center gap-3 self-end sm:self-center">
           {isLive ? (
-            <div className="flex items-center space-x-2 text-xs bg-success/10 border border-success/30 px-3 py-1.5 rounded-full text-success">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Next 10s sync in:</span>
-              <span className="font-mono font-bold w-4 text-center">{countdown}s</span>
-              {lastUpdated && (
-                <span className="hidden font-mono text-[10px] text-foreground/50 sm:inline">
-                  · fetch {new Date(lastUpdated).toLocaleTimeString("en-GB", { hour12: false })}
-                </span>
-              )}
-            </div>
+            formattedUpdated && (
+              <span className="text-xs text-muted-foreground">
+                Last updated: <span className="font-mono text-foreground/75">{formattedUpdated}</span>
+              </span>
+            )
           ) : (
-            <div className="flex items-center space-x-2 text-xs bg-warning/10 border border-warning/30 px-3 py-1.5 rounded-full text-warning">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Showing Archived Events for: <strong>{selectedDate}</strong></span>
-            </div>
+            <span className="text-xs text-warning">
+              Archived: <span className="font-mono font-medium">{selectedDate}</span>
+            </span>
           )}
 
           <Button
@@ -140,10 +118,10 @@ export function DateFilterBar({
             variant="outline"
             onClick={onRefreshNow}
             disabled={isRefreshing}
-            className="rounded-full px-3 text-xs border-border/80 hover:bg-surface-muted flex items-center gap-1.5"
+            className="h-8 gap-1.5 rounded-lg border-border px-3 text-xs font-medium hover:bg-surface-muted"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
-            <span>{isRefreshing ? "Syncing..." : "Sync Now"}</span>
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-primary" : "text-muted-foreground"}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
           </Button>
         </div>
       </div>

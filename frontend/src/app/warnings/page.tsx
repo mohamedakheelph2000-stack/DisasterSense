@@ -108,22 +108,18 @@ export default function WarningsPage() {
   return (
     <AppShell>
       <PageHeader
-        eyebrow="24/7 ANALYSIS"
+        eyebrow="Early Warning System"
         title="Warning Board"
-        description="Risk areas produced by the live ingestion engine: weather telemetry scored by the ML flood and landslide models, corroborated by government, scientific and news sources refreshed on a 5-second tick."
+        description="Active risk areas and hazard warnings scored across Kerala monitored locations."
         meta={
           <>
-            <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 font-mono text-[11px] text-success">
-              <span className="h-1.5 w-1.5 animate-blink rounded-full bg-success" />
-              LIVE · AUTO-REFRESH {LIVE_REFRESH_MS / 1000}s
-            </span>
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {lastUpdated ? `updated ${lastUpdated.toLocaleTimeString()}` : "—"}
+            <span className="text-xs text-muted-foreground">
+              {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "Awaiting data"}
               {refreshing ? " · refreshing…" : ""}
             </span>
             {data && (
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {data.monitored_locations} locations · {data.external_signals_considered} external signals
+              <span className="text-xs text-muted-foreground">
+                {data.monitored_locations} locations · {data.external_signals_considered} signals evaluated
               </span>
             )}
           </>

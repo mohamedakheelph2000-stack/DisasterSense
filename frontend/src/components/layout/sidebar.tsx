@@ -83,15 +83,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full w-64 flex-col border-r border-border bg-rail/95 backdrop-blur-md">
       {/* Brand */}
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5">
-        <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-primary/40 bg-primary/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
           <ShieldAlert className="h-5 w-5 text-primary" />
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-blink rounded-full bg-success shadow-[0_0_8px_hsl(var(--success))]" />
-        </span>
+        </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-[0.14em] text-foreground">
-            DISASTERSENSE
-          </p>
-          <p className="hud-label truncate">Operations Console</p>
+          <span className="text-base font-semibold tracking-tight text-foreground">
+            DisasterSense
+          </span>
         </div>
       </div>
 

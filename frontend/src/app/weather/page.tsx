@@ -204,9 +204,9 @@ export default function WeatherForecastPage() {
       case "rain":
         return <CloudRain className={`${className} text-blue-400`} />;
       case "heavy-rain":
-        return <CloudRain className={`${className} text-indigo-400 animate-bounce`} />;
+        return <CloudRain className={`${className} text-indigo-400`} />;
       case "thunderstorm":
-        return <CloudLightning className={`${className} text-purple-400 animate-pulse`} />;
+        return <CloudLightning className={`${className} text-purple-400`} />;
       case "mist":
         return <Cloud className={`${className} text-gray-400`} />;
       default:

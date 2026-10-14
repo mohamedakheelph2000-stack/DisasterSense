@@ -106,17 +106,22 @@ export default function DataSourcesPage() {
   return (
     <AppShell>
       <PageHeader
-        eyebrow="24/7 INGESTION"
+        eyebrow="Data Ingestion"
         title="Data Sources"
-        description="Every trusted source the engine polls — government and scientific feeds, open weather data, satellite event tracking and disaster news — with its own cadence, latency and error history."
+        description="External sources polled for meteorological telemetry, scientific feeds, and verified advisories."
         meta={
           <>
-            <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 font-mono text-[11px] text-success">
-              <span className="h-1.5 w-1.5 animate-blink rounded-full bg-success" />
-              {worker?.running ? `PIPELINE RUNNING · ${worker.tick_seconds}s TICK` : "PIPELINE IDLE"}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 text-xs font-medium ${
+                worker?.running
+                  ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                  : "border border-slate-700 bg-slate-800 text-slate-400"
+              }`}
+            >
+              {worker?.running ? `Pipeline active · ${worker.tick_seconds}s interval` : "Pipeline idle"}
             </span>
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {lastUpdated ? `updated ${lastUpdated.toLocaleTimeString()}` : "—"}
+            <span className="text-xs text-muted-foreground">
+              {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "—"}
               {refreshing ? " · refreshing…" : ""}
             </span>
           </>

@@ -13,7 +13,7 @@ export function ResponderCommandCenter({ data, loading, error, onRetry }: any) {
     return (
       <div className="h-[80vh] flex flex-col items-center justify-center text-center">
         <AlertTriangle className="h-16 w-16 text-danger mb-4" />
-        <h2 className="text-2xl font-bold tracking-tight mb-2">COMMAND CENTER OFFLINE</h2>
+        <h2 className="text-2xl font-bold tracking-tight mb-2">Command Center Offline</h2>
         <p className="text-foreground/60 mb-6">{error}</p>
         <Button onClick={onRetry}>Retry Connection</Button>
       </div>
@@ -37,39 +37,42 @@ export function ResponderCommandCenter({ data, loading, error, onRetry }: any) {
 
       <FadeIn direction="up">
         <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-border/50">
-          <ShieldAlert className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Operational Command Center</h1>
+          <ShieldAlert className="w-7 h-7 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Emergency Response Console</h1>
+            <p className="text-xs text-muted-foreground">Active incident tracking, field dispatch, and regional telemetry.</p>
+          </div>
         </div>
       </FadeIn>
 
       {/* Operational KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <FadeIn delay={0.1}>
-          <div className="bg-surface-muted/30 border border-danger/30 rounded-xl p-6 flex flex-col relative overflow-hidden h-full">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldAlert className="w-16 h-16 text-danger" /></div>
-            <span className="text-sm font-semibold text-danger uppercase tracking-wider mb-2">High/Critical Alerts</span>
-            <span className="text-4xl font-bold text-danger"><Counter to={highCriticalAlerts.length} /></span>
+          <div className="bg-slate-900/60 border border-rose-500/30 rounded-xl p-5 flex flex-col relative overflow-hidden h-full">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldAlert className="w-16 h-16 text-rose-400" /></div>
+            <span className="text-xs font-medium text-rose-400 mb-1">High & Critical Alerts</span>
+            <span className="text-3xl font-bold text-rose-400"><Counter to={highCriticalAlerts.length} /></span>
           </div>
         </FadeIn>
         <FadeIn delay={0.2}>
-          <div className="bg-surface-muted/30 border border-warning/30 rounded-xl p-6 flex flex-col relative overflow-hidden h-full">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><AlertTriangle className="w-16 h-16 text-warning" /></div>
-            <span className="text-sm font-semibold text-warning uppercase tracking-wider mb-2">Awaiting Ack</span>
-            <span className="text-4xl font-bold text-warning"><Counter to={activeIncidents.length} /></span>
+          <div className="bg-slate-900/60 border border-amber-500/30 rounded-xl p-5 flex flex-col relative overflow-hidden h-full">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><AlertTriangle className="w-16 h-16 text-amber-400" /></div>
+            <span className="text-xs font-medium text-amber-400 mb-1">Awaiting Acknowledgment</span>
+            <span className="text-3xl font-bold text-amber-400"><Counter to={activeIncidents.length} /></span>
           </div>
         </FadeIn>
         <FadeIn delay={0.3}>
-          <div className="bg-surface-muted/30 border border-info/30 rounded-xl p-6 flex flex-col relative overflow-hidden h-full">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><Activity className="w-16 h-16 text-info" /></div>
-            <span className="text-sm font-semibold text-info uppercase tracking-wider mb-2">In Response</span>
-            <span className="text-4xl font-bold text-info"><Counter to={respondingIncidents.length} /></span>
+          <div className="bg-slate-900/60 border border-sky-500/30 rounded-xl p-5 flex flex-col relative overflow-hidden h-full">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Activity className="w-16 h-16 text-sky-400" /></div>
+            <span className="text-xs font-medium text-sky-400 mb-1">In Active Response</span>
+            <span className="text-3xl font-bold text-sky-400"><Counter to={respondingIncidents.length} /></span>
           </div>
         </FadeIn>
         <FadeIn delay={0.4}>
-          <div className="bg-surface-muted/30 border border-white/10 rounded-xl p-6 flex flex-col relative overflow-hidden h-full">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><CheckCircle2 className="w-16 h-16 text-foreground" /></div>
-            <span className="text-sm font-semibold text-foreground/50 uppercase tracking-wider mb-2">Recent Events</span>
-            <span className="text-4xl font-bold"><Counter to={totalEvents} /></span>
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 flex flex-col relative overflow-hidden h-full">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><CheckCircle2 className="w-16 h-16 text-slate-400" /></div>
+            <span className="text-xs font-medium text-slate-400 mb-1">Recent Monitored Events</span>
+            <span className="text-3xl font-bold text-white"><Counter to={totalEvents} /></span>
           </div>
         </FadeIn>
       </div>

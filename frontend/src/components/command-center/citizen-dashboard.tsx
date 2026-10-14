@@ -1,4 +1,3 @@
-import { SystemStatusHero } from "@/components/dashboard/system-status-hero";
 import { OverallRiskCard } from "@/components/dashboard/overall-risk-card";
 import { DetailedRiskCard } from "@/components/dashboard/detailed-risk-card";
 import { EnvironmentalPanel } from "@/components/dashboard/environmental-panel";
@@ -27,8 +26,6 @@ export function CitizenDashboard({ data, loading, error, onRetry, overallScore, 
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full mix-blend-screen" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-danger/10 blur-[100px] rounded-full mix-blend-screen" />
       </div>
-
-      <SystemStatusHero />
 
       {/* Main Dashboard Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6 pb-12">

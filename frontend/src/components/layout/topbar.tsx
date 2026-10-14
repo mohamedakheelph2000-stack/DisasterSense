@@ -7,11 +7,9 @@ import {
   Bell,
   Menu,
   User,
-  Cpu,
   Settings,
   LogOut,
   ChevronDown,
-  WifiOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useConfig } from "@/lib/api/config";
@@ -103,42 +101,17 @@ export function TopBar({ onMenuToggle }: { onMenuToggle?: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
 
-        <div
-          className={cn(
-            "hidden items-center gap-2 rounded-full border px-3 py-1.5 sm:flex",
-            apiOnline
-              ? "border-success/30 bg-success/10"
-              : "border-warning/30 bg-warning/10"
-          )}
-          title={apiOnline ? "Backend health check passing" : "Backend unreachable"}
-        >
-          {apiOnline ? (
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-            </span>
-          ) : (
-            <WifiOff className="h-3 w-3 text-warning" />
-          )}
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/75">
-            {apiOnline ? "API_LINK" : "API_DOWN"}
-          </span>
-        </div>
-
         {isDemoMode && (
-          <span className="rounded-full border border-accent/40 bg-accent/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-            Demo fixtures
+          <span className="rounded-full border border-accent/40 bg-accent/15 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
+            Demo Mode
           </span>
         )}
 
         {now && (
-          <div className="hidden items-center gap-2.5 rounded-lg border border-border/80 bg-surface-muted/70 px-3 py-1.5 lg:flex">
-            <Cpu className="h-3.5 w-3.5 text-primary/80" />
-            <span className="text-[11px] text-foreground/60">{dateLabel}</span>
-            <span className="h-3 w-px bg-border" />
-            <span className="font-mono text-xs font-semibold tabular-nums tracking-[0.1em] text-primary">
-              {timeLabel}
-            </span>
+          <div className="hidden items-center gap-2 text-xs text-muted-foreground lg:flex">
+            <span>{dateLabel}</span>
+            <span className="text-foreground/25">·</span>
+            <span className="font-mono text-foreground/60 tabular-nums">{timeLabel}</span>
           </div>
         )}
       </div>

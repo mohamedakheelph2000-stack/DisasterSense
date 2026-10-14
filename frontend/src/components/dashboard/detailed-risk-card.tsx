@@ -46,15 +46,17 @@ export function DetailedRiskCard({ type, data, loading }: DetailedRiskCardProps)
               <Icon className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-lg uppercase tracking-wider">{type} RISK</CardTitle>
-              <div className="text-xs text-foreground/50 mt-1 font-mono">MODEL: {data.model_version}</div>
+              <CardTitle className="text-base font-semibold text-foreground">
+                {isFlood ? "Flood Risk" : "Landslide Risk"}
+              </CardTitle>
+              <div className="text-xs text-muted-foreground mt-0.5 font-mono">{data.model_version}</div>
             </div>
           </div>
           <div className="text-right">
-            <div className={`text-3xl font-bold ${colorClass}`}>
+            <div className={`text-2xl font-bold font-mono ${colorClass}`}>
               <Counter to={data.risk_score} duration={1} />
             </div>
-            <Badge variant={data.risk_score >= 80 ? "critical" : data.risk_score >= 60 ? "danger" : data.risk_score >= 40 ? "warning" : "success"} className="mt-1">
+            <Badge variant={data.risk_score >= 80 ? "critical" : data.risk_score >= 60 ? "danger" : data.risk_score >= 40 ? "warning" : "success"} className="mt-1 text-[11px]">
               {data.risk_level}
             </Badge>
           </div>
@@ -62,7 +64,7 @@ export function DetailedRiskCard({ type, data, loading }: DetailedRiskCardProps)
       </CardHeader>
       
       <CardContent className="pt-4 flex-1">
-        <h4 className="text-xs font-semibold text-foreground/50 uppercase mb-3">Key Contributing Factors</h4>
+        <h4 className="text-xs font-medium text-muted-foreground mb-3">Key Contributing Factors</h4>
         <div className="space-y-4">
           {data.feature_impacts?.map((feature: FeatureImpact, idx: number) => {
             const pct = Math.min(100, Math.round((feature?.importance || 0) * 100));

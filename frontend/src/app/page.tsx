@@ -264,45 +264,56 @@ export default function Dashboard() {
   );
 }
 
-const STRIP_TONES = [
-  { key: "high", label: "High", classes: "border-danger/40 bg-danger/10 text-danger" },
-  { key: "medium", label: "Medium", classes: "border-warning/40 bg-warning/10 text-warning" },
-  { key: "low", label: "Low", classes: "border-success/40 bg-success/10 text-success" },
-] as const;
-
 function LiveWarningStrip({ summary }: { summary: DashboardPayload["warningSummary"] }) {
   if (!summary) return null;
   const counts = summary.counts || {};
+  const highCount = counts.high ?? 0;
+  const mediumCount = counts.medium ?? 0;
+  const lowCount = counts.low ?? 0;
+  const totalWarnings = (summary.total ?? 0);
 
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-surface/60 px-4 py-3">
-      <span className="flex items-center gap-2 text-xs font-semibold tracking-[0.12em] text-foreground/85">
-        <Siren className="h-4 w-4 text-primary" />
-        LIVE WARNINGS
-        <span className="h-1.5 w-1.5 animate-blink rounded-full bg-success shadow-[0_0_8px_hsl(var(--success))]" />
-      </span>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-surface/50 px-4 py-2.5 transition-colors">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Siren className="h-4 w-4 text-primary" />
+          <span>Active Warnings</span>
+        </div>
 
-      {STRIP_TONES.map((tone) => (
-        <span
-          key={tone.key}
-          className={`rounded-lg border px-2.5 py-1 font-mono text-[11px] ${tone.classes}`}
-        >
-          {tone.label.toUpperCase()} {counts[tone.key] ?? 0}
-        </span>
-      ))}
-
-      <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-        {summary.total} areas · {summary.flood_areas} flood · {summary.landslide_areas} landslide
-        {summary.generated_at
-          ? ` · analysed ${new Date(summary.generated_at).toLocaleTimeString()}`
-          : ""}
-      </span>
+        {totalWarnings === 0 ? (
+          <span className="text-xs text-muted-foreground">
+            No active alerts across monitored locations
+          </span>
+        ) : (
+          <div className="flex items-center gap-2">
+            {highCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
+                <span>High:</span>
+                <span className="font-mono font-semibold">{highCount}</span>
+              </span>
+            )}
+            {mediumCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                <span>Moderate:</span>
+                <span className="font-mono font-semibold">{mediumCount}</span>
+              </span>
+            )}
+            {lowCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                <span>Low:</span>
+                <span className="font-mono">{lowCount}</span>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       <Link
         href="/warnings"
-        className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
       >
-        Open warning board <ArrowRight className="h-3 w-3" />
+        <span>Open Warning Board</span>
+        <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </div>
   );
