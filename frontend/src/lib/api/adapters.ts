@@ -3,7 +3,8 @@
  * into the shapes expected by existing frontend components.
  *
  * Used in REAL API MODE to bridge backend schemas and component props.
- * Demo mode continues to use pre-shaped mock data from client.ts.
+ * Opt-in demo fixtures live in `mocks.ts` and are only used when
+ * `NEXT_PUBLIC_DEMO_MODE=true`; they are never a silent fallback.
  */
 
 /**
@@ -36,10 +37,10 @@ export function eventToRiskCardData(event: any): any {
     try {
       const snapshot = JSON.parse(event.feature_snapshot);
       featureImpacts = (snapshot.explanation || []).map((exp: any) => ({
-        feature: exp.feature,
-        value: exp.value,
-        importance: exp.importance,
-        impact_level: exp.impact || exp.impact_level || "low",
+        feature: exp?.feature || exp?.name || "Contributing Factor",
+        value: typeof exp?.value === "number" ? exp.value : 0,
+        importance: typeof exp?.importance === "number" ? exp.importance : 0.1,
+        impact_level: exp?.impact || exp?.impact_level || "low",
       }));
     } catch {
       // feature_snapshot is not valid JSON, skip

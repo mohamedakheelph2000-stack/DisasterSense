@@ -1,121 +1,182 @@
+"use client";
+
 import Link from "next/link";
-import { 
-  LayoutDashboard, 
-  Map as MapIcon, 
-  Activity, 
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  LayoutDashboard,
+  Map as MapIcon,
+  Activity,
   AlertTriangle,
   History,
   ShieldAlert,
   Settings,
   BarChart2,
   Server,
+  Database,
   Building2,
-  Database
+  Radar,
+  Siren,
+  Rss,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
-import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-export function Sidebar() {
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  roles?: string[];
+}
+
+interface NavGroup {
+  heading: string;
+  /** When set, only these roles see the group. */
+  roles?: string[];
+  items: NavItem[];
+}
+
+const GROUPS: NavGroup[] = [
+  {
+    heading: "Command",
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/warnings", label: "Warnings", icon: Siren },
+      { href: "/map", label: "Live Map", icon: MapIcon },
+      { href: "/alerts", label: "Incidents", icon: AlertTriangle },
+    ],
+  },
+  {
+    heading: "Operations",
+    items: [
+      { href: "/risk-assessment", label: "Risk Assessment", icon: Activity },
+      { href: "/resources", label: "Resources", icon: Building2 },
+      { href: "/events", label: "Event Log", icon: History },
+      { href: "/analytics", label: "Analytics", icon: BarChart2 },
+      { href: "/sources", label: "Data Sources", icon: Rss },
+    ],
+  },
+  {
+    heading: "Intelligence",
+    roles: ["responder", "admin"],
+    items: [
+      { href: "/ml-intelligence", label: "ML Models", icon: Radar },
+      { href: "/data-governance", label: "Data Governance", icon: Database },
+    ],
+  },
+  {
+    heading: "Administration",
+    roles: ["admin"],
+    items: [{ href: "/system", label: "System Telemetry", icon: Server }],
+  },
+];
+
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user } = useAuth();
-  const role = user?.role || "citizen";
   const pathname = usePathname();
-
-  const isAdmin = role === "admin";
-  const isResponder = role === "responder" || isAdmin;
-
-  const getLinkClass = (path: string) => {
-    const isActive = pathname === path;
-    return `flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors ${
-      isActive 
-        ? "bg-primary/10 text-primary font-medium" 
-        : "text-foreground/70 hover:bg-surface hover:text-foreground font-medium"
-    }`;
-  };
+  const role = user?.role || "citizen";
 
   return (
-    <aside className="w-64 border-r border-border bg-surface-muted/50 hidden md:flex flex-col backdrop-blur-sm">
-      <div className="h-16 flex items-center px-6 border-b border-border">
-        <ShieldAlert className="h-6 w-6 text-primary mr-3" />
-        <span className="font-bold text-lg tracking-wider">DISASTERSENSE</span>
+    <div className="flex h-full w-64 flex-col border-r border-border bg-rail/95 backdrop-blur-md">
+      {/* Brand */}
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5">
+        <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-primary/40 bg-primary/10">
+          <ShieldAlert className="h-5 w-5 text-primary" />
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-blink rounded-full bg-success shadow-[0_0_8px_hsl(var(--success))]" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-[0.14em] text-foreground">
+            DISASTERSENSE
+          </p>
+          <p className="hud-label truncate">Operations Console</p>
+        </div>
       </div>
-      
-      <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
-        <p className="px-2 text-xs font-semibold text-foreground/40 uppercase tracking-wider mb-4">Command Center</p>
-        
-        <Link href="/" className={getLinkClass("/")}>
-          <LayoutDashboard className="h-5 w-5" />
-          <span>Dashboard</span>
-        </Link>
-        <Link href="/map" className={getLinkClass("/map")}>
-          <MapIcon className="h-5 w-5" />
-          <span>Live Map</span>
-        </Link>
-        
-        {isResponder && (
-          <Link href="/alerts" className={getLinkClass("/alerts")}>
-            <AlertTriangle className="h-5 w-5" />
-            <span>Incidents</span>
-          </Link>
-        )}
-        
-        {!isResponder && (
-          <Link href="/alerts" className={getLinkClass("/alerts")}>
-            <AlertTriangle className="h-5 w-5" />
-            <span>Active Alerts</span>
-          </Link>
-        )}
 
-        <Link href="/risk-assessment" className={getLinkClass("/risk-assessment")}>
-          <Activity className="h-5 w-5" />
-          <span>{isResponder ? "Risk Intelligence" : "Risk Assessment"}</span>
-        </Link>
+      {/* Nav */}
+      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+        {GROUPS.filter((group) => !group.roles || group.roles.includes(role)).map(
+          (group) => (
+            <div key={group.heading}>
+              <p className="eyebrow mb-2 px-2.5">{group.heading}</p>
+              <ul className="space-y-1">
+                {group.items.map((item) => {
+                  const active =
+                    item.href === "/"
+                      ? pathname === "/"
+                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const Icon = item.icon;
 
-        <Link href="/resources" className={getLinkClass("/resources")}>
-          <Building2 className="h-5 w-5" />
-          <span>Emergency Resources</span>
-        </Link>
-        
-        <Link href="/analytics" className={getLinkClass("/analytics")}>
-          <BarChart2 className="h-5 w-5" />
-          <span>Analytics</span>
-        </Link>
-
-        <Link href="/events" className={getLinkClass("/events")}>
-          <History className="h-5 w-5" />
-          <span>Disaster Events</span>
-        </Link>
-        
-        {isResponder && (
-          <>
-            <p className="px-2 text-xs font-semibold text-foreground/40 uppercase tracking-wider mt-6 mb-2">Intelligence</p>
-            <Link href="/ml-intelligence" className={getLinkClass("/ml-intelligence")}>
-              <Activity className="h-5 w-5" />
-              <span>ML Intelligence</span>
-            </Link>
-            <Link href="/data-governance" className={getLinkClass("/data-governance")}>
-              <Database className="h-5 w-5" />
-              <span>Data Governance</span>
-            </Link>
-          </>
-        )}
-
-        {isAdmin && (
-          <>
-            <p className="px-2 text-xs font-semibold text-foreground/40 uppercase tracking-wider mt-4 mb-2">Administration</p>
-            <Link href="/system" className={getLinkClass("/system")}>
-              <Server className="h-5 w-5" />
-              <span>System Telemetry</span>
-            </Link>
-          </>
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "group relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition-colors duration-200",
+                          active
+                            ? "text-primary"
+                            : "text-foreground/60 hover:bg-surface/70 hover:text-foreground/90"
+                        )}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="sidebar-active"
+                            transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                            className="absolute inset-0 rounded-lg border border-primary/25 bg-primary/10"
+                          />
+                        )}
+                        <span className="relative z-10 flex items-center gap-3">
+                          <Icon
+                            className={cn(
+                              "h-4 w-4 shrink-0 transition-colors",
+                              active
+                                ? "text-primary drop-shadow-[0_0_6px_hsl(var(--primary)/0.7)]"
+                                : "text-foreground/45 group-hover:text-foreground/70"
+                            )}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )
         )}
       </nav>
 
-      <div className="p-4 border-t border-border">
-        <Link href="/settings" className={getLinkClass("/settings")}>
-          <Settings className="h-5 w-5" />
-          <span>Settings</span>
+      {/* Footer */}
+      <div className="shrink-0 space-y-3 border-t border-border px-3 py-4">
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition-colors",
+            pathname === "/settings"
+              ? "bg-primary/10 text-primary"
+              : "text-foreground/60 hover:bg-surface/70 hover:text-foreground"
+          )}
+        >
+          <Settings className="h-4 w-4" />
+          Settings
         </Link>
+
+        <div className="rounded-lg border border-border/70 bg-surface/60 px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="hud-label">Signed in</span>
+            <span className="flex h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_hsl(var(--success))]" />
+          </div>
+          <p className="mt-1 truncate text-xs font-medium text-foreground/85">
+            {user?.full_name || "Operator"}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {user?.role?.toUpperCase() || "CITIZEN"} · {user?.email}
+          </p>
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }

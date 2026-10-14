@@ -231,14 +231,27 @@ class RiskEngine:
             importances = meta.get("feature_importances", {}) # Legacy support
             
         explanations: List[FeatureExplanationItem] = []
+        # Importances are not on a common scale across model families
+        # (logistic-regression coefficients can exceed 1.0 while forests sum
+        # to 1.0), so classify impact relative to the strongest contributor.
+        max_weight = max((abs(float(w)) for w in importances.values()), default=0.0)
         for name in feature_names:
             val = float(features_dict.get(name, 0.0))
             weight = float(importances.get(name, 0.05))
-            # Normalize impact text
-            impact = "High" if weight >= 0.15 else "Moderate" if weight >= 0.08 else "Low"
+            relative = (abs(weight) / max_weight) if max_weight > 0 else 0.0
+            impact = "High" if relative >= 0.5 else "Moderate" if relative >= 0.2 else "Low"
             explanations.append(FeatureExplanationItem(feature=name, value=val, importance=round(weight, 4), impact_level=impact))
 
         explanations.sort(key=lambda x: x.importance, reverse=True)
+
+        model_version = meta.get("model_version")
+        if not model_version:
+            dataset_version = meta.get("dataset_version")
+            model_version = (
+                f"real-v1 ({inf_source})"
+                if dataset_version == "real-v1"
+                else str(dataset_version or meta.get("model_name") or "unknown")
+            )
 
         return RiskAssessmentResult(
             hazard_type=hazard_type,
@@ -247,7 +260,7 @@ class RiskEngine:
             severity=sev,
             probability=prob,
             model_name=meta.get("model_name", "unknown"),
-            model_version=meta.get("model_version", "unknown"),
+            model_version=model_version,
             dataset_version=meta.get("dataset_version", None),
             inference_source=inf_source,
             mode=mode,

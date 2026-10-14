@@ -80,6 +80,7 @@ def get_spatial_aggregation(
     # Since we need full traceability (latest score, detailed provenance list),
     # and this is a prototype, we pull the bounded records and aggregate in Python.
     query = db.query(DisasterEvent, Location).join(Location, DisasterEvent.location_id == Location.id)
+    query = query.order_by(DisasterEvent.id.asc())
     
     query = query.filter(DisasterEvent.record_type == r_type)
     if h_type:
@@ -240,6 +241,7 @@ def get_spatial_clusters(
         raise HTTPException(status_code=400, detail="Invalid time_range.")
 
     query = db.query(DisasterEvent, Location).join(Location, DisasterEvent.location_id == Location.id)
+    query = query.order_by(DisasterEvent.id.asc())
     query = query.filter(DisasterEvent.record_type == r_type)
     if h_type:
         query = query.filter(DisasterEvent.hazard_type == h_type)

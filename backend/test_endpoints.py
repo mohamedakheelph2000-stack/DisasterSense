@@ -21,12 +21,11 @@ def run_tests():
     print(f"--- /docs ---")
     print(f"Status: {res.status_code}\n")
 
-    # 2. Register
+    # 2. Register (self-registration cannot choose a role — always citizen)
     reg_data = {
         "email": f"test_{int(time.time())}@example.com",
         "plain_password": "Password123!",
         "full_name": "Test User",
-        "role": "responder" # Try to register as responder, might fallback to citizen or be allowed
     }
     res = requests.post(f"{BASE_URL}/auth/register", json=reg_data)
     print_result("Register", res)

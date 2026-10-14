@@ -6,31 +6,67 @@
 
 @layer base {
   :root {
-    /* Base Colors - Command Center Dark Theme */
-    --background: 230 25% 6%;
-    --foreground: 210 40% 98%;
+    /* --font-sans is injected by next/font (Outfit) on <html>; only the mono
+       stack lives here so the two never collide on specificity. */
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', 'Consolas', ui-monospace, monospace;
 
-    --surface: 230 20% 10%;
-    --surface-muted: 230 20% 14%;
-    
-    --border: 230 20% 20%;
+    /* ---- Command-center dark palette (cool blue-black) ---- */
+    --background: 228 32% 4%;
+    --foreground: 214 40% 96%;
 
-    /* Brand Colors */
-    --primary: 210 100% 50%;
-    --primary-foreground: 210 40% 98%;
-    
-    --secondary: 230 25% 18%;
-    --secondary-foreground: 210 40% 98%;
+    --surface: 228 26% 7%;
+    --surface-muted: 228 24% 11%;
+    --surface-raised: 228 24% 14%;
 
-    --accent: 280 80% 60%;
-    --accent-foreground: 210 40% 98%;
+    --rail: 228 30% 5%;
+    --grid: 215 30% 14%;
 
-    /* Semantic Risk Colors */
-    --info: 210 100% 50%;       /* Blue */
-    --success: 150 60% 45%;     /* Teal/Green for Very Low Risk */
-    --warning: 40 90% 55%;      /* Yellow/Orange for Moderate Risk */
-    --danger: 15 90% 55%;       /* Orange/Red for High Risk */
-    --critical: 0 100% 50%;     /* Pure Red for Critical Risk */
+    --card: 228 26% 8%;
+    --card-foreground: 214 40% 96%;
+    --popover: 228 28% 6%;
+    --popover-foreground: 214 40% 96%;
+
+    --border: 222 22% 17%;
+    --input: 222 22% 20%;
+
+    --muted: 222 20% 15%;
+    --muted-foreground: 220 14% 58%;
+
+    /* ---- Brand ---- */
+    --primary: 197 100% 50%;
+    --primary-foreground: 228 32% 5%;
+
+    --secondary: 228 24% 16%;
+    --secondary-foreground: 214 40% 96%;
+
+    --accent: 262 83% 66%;
+    --accent-foreground: 214 40% 96%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --ring: 197 100% 50%;
+    --radius: 0.75rem;
+
+    /* ---- Semantic risk/status scale ---- */
+    --info: 210 100% 55%;       /* Blue   - informational */
+    --info-foreground: 228 32% 5%;
+
+    --success: 152 55% 45%;     /* Green  - very low / ok */
+    --success-foreground: 228 32% 5%;
+
+    --warning: 38 92% 55%;      /* Amber  - low / moderate */
+    --warning-foreground: 228 32% 5%;
+
+    --danger: 14 88% 55%;       /* Orange - high */
+    --danger-foreground: 228 32% 5%;
+
+    --critical: 0 84% 55%;      /* Red    - critical */
+    --critical-foreground: 0 0% 100%;
+  }
+
+  @media (prefers-color-scheme: light) {
+    /* Deliberately no light theme: this is an operations console. */
   }
 }
 
@@ -38,66 +74,224 @@
   * {
     @apply border-border;
   }
+
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/30;
-    /* Optional subtle grid background for the command center feel */
-    background-image: 
-      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-image:
+      linear-gradient(to right, hsl(var(--grid) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--grid) / 0.5) 1px, transparent 1px);
+    background-size: 44px 44px;
     background-position: center center;
     background-attachment: fixed;
+  }
+
+  /* Hairline top glow that reads as a "console bezel" */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 220px;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(
+      60% 100% at 50% 0%,
+      hsl(var(--primary) / 0.10),
+      transparent 70%
+    );
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.55);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.85);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---- Panel: the base container of the console ---- */
+  .panel {
+    @apply relative rounded-xl border border-border bg-surface/70 backdrop-blur-sm shadow-panel;
+  }
+
+  .panel-raised {
+    @apply panel bg-surface-raised/70;
+  }
+
+  .panel-glow {
+    @apply transition-shadow duration-500 ease-out-expo;
+  }
+  .panel-glow:hover {
+    @apply shadow-panel-hover border-primary/30;
+  }
+
+  /* Thin animated accent line along the top of a panel */
+  .panel-accent::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary) / 0.7),
+      transparent
+    );
+    opacity: 0.7;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground;
+  }
+
+  .hud-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.16em] text-foreground/45;
+  }
+
+  .stat-value {
+    @apply font-mono text-3xl font-semibold leading-none tracking-tight text-foreground;
+  }
+
+  .scan-overlay {
+    @apply pointer-events-none absolute inset-0 overflow-hidden;
+  }
+  .scan-overlay::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 28%;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      hsl(var(--primary) / 0.07),
+      transparent
+    );
+    animation: scan 7s linear infinite;
+  }
+
+  .glass {
+    @apply border border-white/5 bg-surface/60 backdrop-blur-md;
+  }
+
+  .glass-panel {
+    @apply border border-white/10 bg-surface/40 shadow-xl backdrop-blur-lg;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.07),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.2s linear infinite;
+  }
+
+  .tick {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
   }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .text-shadow-glow {
+    text-shadow: 0 0 18px hsl(var(--primary) / 0.55);
   }
-  
-  /* Glassmorphism utilities */
-  .glass {
-    @apply bg-surface/60 backdrop-blur-md border border-white/5;
+
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
   }
-  
-  .glass-panel {
-    @apply bg-surface/40 backdrop-blur-lg border border-white/10 shadow-xl;
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* Explicit Leaflet container sizing & dark theme integration */
+/* ---- Leaflet: explicit sizing + dark integration ---- */
 .leaflet-container {
   width: 100% !important;
   height: 100% !important;
   min-height: 400px;
-  background-color: #12141a !important;
+  background-color: #0a0d16 !important;
   font-family: inherit !important;
   z-index: 1;
   position: relative;
   isolation: isolate;
 }
 
-/* Custom dark popup styling */
-.dark-popup .leaflet-popup-content-wrapper,
-.leaflet-popup-content-wrapper {
-  background: #1a1e29 !important;
-  color: #f1f5f9 !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6) !important;
-  backdrop-filter: blur(12px) !important;
-}
-
-.dark-popup .leaflet-popup-tip,
+.leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: #1a1e29 !important;
+  background: #121622 !important;
+  color: #e8edf7 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 24px 48px -18px rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(14px) !important;
 }
 
 .leaflet-container a.leaflet-popup-close-button {
   color: #94a3b8 !important;
-  padding: 6px !important;
+  padding: 8px !important;
 }
 
 .leaflet-container a.leaflet-popup-close-button:hover {
   color: #ffffff !important;
+}
+
+.leaflet-control-zoom a {
+  background: #121622 !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(10, 13, 22, 0.75) !important;
+  color: #64748b !important;
+  font-size: 9px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #94a3b8 !important;
 }

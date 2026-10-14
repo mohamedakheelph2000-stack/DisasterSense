@@ -1,4 +1,4 @@
-import { FloodAssessmentRequest, LandslideAssessmentRequest } from "@/lib/api/types/risk";
+
 import { Card, CardContent } from "../ui/card";
 
 interface AssessmentFormProps {

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Map, AlertTriangle } from "lucide-react";
+import { Map } from "lucide-react";
 
 export function RegionalSituation({ clusters = [] }: { clusters: any[] }) {
   const floodClusters = clusters.filter(c => c.hazard_type === 'flood');

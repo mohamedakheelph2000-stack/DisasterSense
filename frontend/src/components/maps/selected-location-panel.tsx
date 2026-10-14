@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Navigation, CloudRain, Mountain, AlertTriangle, CheckCircle, ShieldAlert, Phone, ShieldCheck, Building2 } from "lucide-react";
+import { X, Navigation, CloudRain, Mountain, AlertTriangle, CheckCircle, ShieldAlert, Phone, ShieldCheck,  } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -18,6 +18,7 @@ export function SelectedLocationPanel({ data, onClose, onAssessRisk, onEscalateC
   const [escalateNote, setEscalateNote] = useState("");
   const [isEscalating, setIsEscalating] = useState(false);
   const [escalateSuccess, setEscalateSuccess] = useState(false);
+  const [escalateError, setEscalateError] = useState<string | null>(null);
 
   if (!data) return null;
 
@@ -136,6 +137,12 @@ export function SelectedLocationPanel({ data, onClose, onAssessRisk, onEscalateC
                     />
                   </div>
                   
+                  {escalateError && (
+                    <p role="alert" className="text-xs text-danger border border-danger/30 bg-danger/10 rounded p-2 break-words">
+                      {escalateError}
+                    </p>
+                  )}
+
                   <div className="flex space-x-2 pt-2">
                     <Button 
                       variant="outline" 
@@ -150,12 +157,12 @@ export function SelectedLocationPanel({ data, onClose, onAssessRisk, onEscalateC
                       disabled={isEscalating}
                       onClick={async () => {
                         setIsEscalating(true);
+                        setEscalateError(null);
                         try {
                           await onEscalateCluster(data, escalateSeverity, escalateNote);
                           setEscalateSuccess(true);
                         } catch (err) {
-                          console.error(err);
-                          alert("Failed to escalate cluster. See console for details.");
+                          setEscalateError(err instanceof Error ? err.message : String(err));
                         } finally {
                           setIsEscalating(false);
                         }

@@ -59,6 +59,8 @@ def _build_response(
         model_name=result.model_name,
         model_version=result.model_version,
         prediction_source=prediction_source,
+        inference_source=result.inference_source,
+        dataset_version=result.dataset_version,
         input_mode=result.mode,
         location_id=location_id,
         event_id=event_id,

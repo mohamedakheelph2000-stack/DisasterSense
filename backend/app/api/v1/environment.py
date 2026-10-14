@@ -30,6 +30,6 @@ def get_current_environment(
         humidity=env_data.humidity_pct,
         elevation=env_data.elevation_m,
         reference_timestamp=env_data.reference_timestamp,
-        provider="open-meteo",
+        provider=env_data.provider_name,
         status=env_data.status
     )

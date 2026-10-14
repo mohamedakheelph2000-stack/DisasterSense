@@ -17,7 +17,7 @@ const badgeVariants = cva(
         success: "border-transparent bg-success/20 text-success",
         warning: "border-transparent bg-warning/20 text-warning",
         danger: "border-transparent bg-danger/20 text-danger",
-        critical: "border-transparent bg-critical/20 text-critical shadow-[0_0_10px_-2px_rgba(var(--critical),0.4)] animate-pulse",
+        critical: "border-transparent bg-critical/20 text-critical shadow-[0_0_10px_-2px_hsl(var(--critical) / 0.45)] animate-pulse",
       },
     },
     defaultVariants: {

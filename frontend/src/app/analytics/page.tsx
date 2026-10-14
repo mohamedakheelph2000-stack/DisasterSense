@@ -10,12 +10,15 @@ import {
   DataQualityMetrics,
   TrendDataPoint
 } from "@/lib/api/analytics";
+import { errorMessage } from "@/lib/api/client";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { ErrorState } from "@/components/ui/states";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { AlertTriangle, MapPin, Database, Activity, History, ChevronRight } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, MapPin, Database, Activity, History } from "lucide-react";
+
 
 const COLORS = ['hsl(var(--info))', 'hsl(var(--warning))', 'hsl(var(--critical))', 'hsl(var(--success))', 'hsl(var(--foreground))'];
 const SEVERITY_COLORS = {
@@ -37,10 +40,12 @@ export default function AnalyticsPage() {
   const [severity, setSeverity] = useState<SeverityDistribution | null>(null);
   const [geo, setGeo] = useState<GeographicConcentration | null>(null);
   const [quality, setQuality] = useState<DataQualityMetrics | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
+      setError(null);
       try {
         const [sum, tr, comp, sev, g, qual] = await Promise.all([
           analyticsApi.getSummary(days === 0 ? undefined : days),
@@ -56,14 +61,14 @@ export default function AnalyticsPage() {
         setSeverity(sev);
         setGeo(g);
         setQuality(qual);
-      } catch (e: any) {
-        setError(e.response?.data?.detail || "Failed to load analytics");
+      } catch (e) {
+        setError(errorMessage(e));
       } finally {
         setLoading(false);
       }
     };
     fetchAll();
-  }, [days]);
+  }, [days, reloadKey]);
 
   const severityPieData = severity ? [
     { name: 'Predictive', data: Object.entries(severity.predictive).filter(([_,v])=>v>0).map(([k,v]) => ({ name: k, value: v })) },
@@ -75,35 +80,38 @@ export default function AnalyticsPage() {
     { name: 'Alerts', Flood: comparison.flood_alerts, Landslide: comparison.landslide_alerts },
   ] : [];
 
-  if (error) {
-    return <div className="p-8 text-destructive">Error: {error}</div>;
-  }
-
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Disaster Intelligence</h1>
-          <p className="text-foreground/70 mt-1">Aggregate analytics and historical risk patterns.</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-sm font-medium text-primary hover:underline flex items-center">
-            Back to Command Center <ChevronRight className="w-4 h-4 ml-1" />
-          </Link>
-          <select 
-            value={days} 
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="bg-surface border border-border rounded-md px-3 py-1.5 text-sm outline-none focus:border-primary transition-colors"
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={14}>Last 14 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={365}>Last 1 Year</option>
-            <option value={0}>All Time</option>
-          </select>
-        </div>
-      </div>
+    <AppShell>
+      <PageHeader
+        eyebrow="Analytics"
+        title="Disaster Intelligence"
+        description="Aggregate analytics, historical risk patterns and provenance metrics for the monitored region."
+        actions={
+          <div className="flex items-center gap-3">
+            <label htmlFor="analytics-window" className="hud-label">
+              Window
+            </label>
+            <select
+              id="analytics-window"
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none transition-colors focus:border-primary"
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={14}>Last 14 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={365}>Last 1 Year</option>
+              <option value={0}>All Time</option>
+            </select>
+          </div>
+        }
+      />
+
+      {error ? (
+        <ErrorState error={new Error(error)} onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : (
+        <div className="space-y-8">
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -308,6 +316,8 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+        </div>
+      )}
+    </AppShell>
   );
 }

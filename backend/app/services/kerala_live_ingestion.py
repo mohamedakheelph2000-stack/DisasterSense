@@ -15,7 +15,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import requests
 
 _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -99,6 +99,10 @@ class KeralaLiveIngestionService:
         self.cached_locations_state: List[Dict[str, Any]] = []
         self.kerala_overall_risk: Dict[str, Any] = {"score": 25.0, "level": "Low"}
         self._last_news_fetch_timestamp: float = 0.0
+        # location_id -> (monotonic timestamp, severity level) of the last
+        # DisasterEvent written. Used to stop the 10s cycle from flooding the
+        # events table with identical rows.
+        self._last_event_write: Dict[int, Tuple[float, str]] = {}
 
     def start(self) -> None:
         """Starts 10-second background polling cycle."""
@@ -211,7 +215,7 @@ class KeralaLiveIngestionService:
                 f"https://api.open-meteo.com/v1/forecast?"
                 f"latitude={lat_str}&longitude={lon_str}&"
                 f"current=temperature_2m,relative_humidity_2m,precipitation,rain,weather_code,wind_speed_10m&"
-                f"forecast_days=1"
+                f"hourly=precipitation&past_days=8&forecast_days=1&timezone=UTC"
             )
 
             weather_data: List[Dict[str, Any]] = []
@@ -231,9 +235,8 @@ class KeralaLiveIngestionService:
             max_score = 0.0
 
             for idx, loc in enumerate(kerala_locations):
-                w_curr = {}
-                if idx < len(weather_data):
-                    w_curr = weather_data[idx].get("current", {})
+                w_entry = weather_data[idx] if idx < len(weather_data) else {}
+                w_curr = (w_entry or {}).get("current", {}) or {}
 
                 # Extract live readings
                 rain_now = float(w_curr.get("rain", 0.0) or 0.0)
@@ -242,25 +245,51 @@ class KeralaLiveIngestionService:
                 humidity = float(w_curr.get("relative_humidity_2m", 80.0) or 80.0)
                 wind = float(w_curr.get("wind_speed_10m", 12.0) or 12.0)
 
-                # Simulated 24h rainfall based on current rainfall & antecedent data
-                # Western Ghats hilly zones receive seasonal showers
-                rainfall_24h = max(rain_now * 12.0, 1.5)
-                if loc.district in ("Wayanad", "Idukki", "Pathanamthitta", "Malappuram"):
-                    rainfall_24h = max(rainfall_24h, 8.5)
+                # Derive real accumulation windows from the hourly series so the
+                # model receives measured rainfall instead of a scaled instant.
+                hourly = (w_entry or {}).get("hourly", {}) or {}
+                h_times = hourly.get("time") or []
+                h_precip = hourly.get("precipitation") or []
+
+                now_hour = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00")
+                ref_idx = max(
+                    (i for i, t in enumerate(h_times) if t <= now_hour),
+                    default=len(h_times) - 1,
+                )
+
+                rainfall_24h = 0.0
+                intensity_1h = 0.0
+                antecedent_7d = 0.0
+                if h_precip and ref_idx >= 0:
+                    start_24 = max(0, ref_idx - 23)
+                    window_24 = [p for p in h_precip[start_24:ref_idx + 1] if p is not None]
+                    if window_24:
+                        rainfall_24h = sum(window_24)
+                        intensity_1h = max(window_24)
+                    start_7d = max(0, start_24 - 168)
+                    window_7d = [p for p in h_precip[start_7d:start_24] if p is not None]
+                    antecedent_7d = sum(window_7d)
+
+                # Only fall back to the instant-derived estimate when the hourly
+                # series was unavailable (e.g. upstream timeout on that field).
+                if not h_precip:
+                    rainfall_24h = max(rain_now * 12.0, 0.0)
+                    intensity_1h = max(precip_now, 0.0)
 
                 elevation = loc.elevation_m or 50.0
 
                 # 1. Run ML Flood Prediction
                 flood_in = FloodInputSchema(
                     rainfall_mm_24h=rainfall_24h,
-                    rainfall_intensity_mm_h=max(precip_now, 1.2),
+                    rainfall_intensity_mm_h=intensity_1h,
                     rainfall_duration_h=12.0,
+                    antecedent_rainfall_7d_mm=antecedent_7d,
                     temperature_c=temp,
                     humidity_pct=humidity,
                     elevation_m=elevation,
                     slope_deg=max(1.0, elevation / 40.0),
                     drainage_capacity_score=5.0,
-                    soil_saturation_pct=min(100.0, max(15.0, rainfall_24h * 1.8 + 20.0)),
+                    soil_saturation_pct=min(100.0, max(15.0, antecedent_7d * 1.8 + 20.0)),
                     historical_flood_count=1,
                     distance_to_river_m=600.0
                 )
@@ -269,11 +298,14 @@ class KeralaLiveIngestionService:
                 # 2. Run ML Landslide Prediction
                 landslide_in = LandslideInputSchema(
                     rainfall_mm_24h=rainfall_24h,
-                    rainfall_intensity_mm_h=max(precip_now, 1.2),
+                    rainfall_intensity_mm_h=intensity_1h,
+                    antecedent_rainfall_7d_mm=antecedent_7d,
+                    temperature_c=temp,
+                    humidity_pct=humidity,
                     slope_deg=max(5.0, elevation / 30.0),
                     elevation_m=elevation,
                     soil_type_code=2.0,
-                    soil_moisture_pct=min(100.0, max(20.0, rainfall_24h * 2.0 + 25.0)),
+                    soil_moisture_pct=min(100.0, max(20.0, antecedent_7d * 2.0 + 25.0)),
                     geological_stability_index=5.0,
                     vegetation_cover_pct=55.0,
                     historical_landslide_count=1,
@@ -286,10 +318,12 @@ class KeralaLiveIngestionService:
                     primary_hazard = "landslide"
                     primary_score = landslide_pred.risk_score
                     primary_sev = landslide_pred.severity
+                    primary_model_version = landslide_pred.model_version
                 else:
                     primary_hazard = "flood"
                     primary_score = flood_pred.risk_score
                     primary_sev = flood_pred.severity
+                    primary_model_version = flood_pred.model_version
 
                 if primary_score > max_score:
                     max_score = primary_score
@@ -303,34 +337,56 @@ class KeralaLiveIngestionService:
                 if not matched_news and news_items:
                     matched_news = news_items[idx % len(news_items)]
 
-                # Save record to DB (predictive event)
+                # Save record to DB (predictive event).
+                # The 10s cycle would otherwise write ~14 identical rows per
+                # minute per district; only persist when the band flips or when
+                # 5 minutes have passed since the last row for this location.
+                now_mono = time.monotonic()
                 now_utc = datetime.now(timezone.utc)
-                event = DisasterEvent(
-                    location_id=loc.id,
-                    hazard_type=HazardType(primary_hazard),
-                    severity=SeverityLevel(primary_sev.lower()),
-                    risk_score=primary_score / 100.0,
-                    model_version="v1.0.0-kerala-live",
-                    record_type=RecordType.PREDICTIVE,
-                    data_source="ksdma-imd-openmeteo-live",
-                    source_reference="https://sdma.kerala.gov.in",
-                    event_time=now_utc,
-                    notes=f"Live 10s sync: {loc.name}. Rain 24h: {rainfall_24h:.1f}mm | News: {matched_news['title'][:60]}..."
-                )
-                db.add(event)
-                db.flush()
+                level_key = primary_sev.lower()
+                elevated = level_key in ("high", "critical")
+                prev_write = self._last_event_write.get(loc.id)
+                band_changed = prev_write is None or prev_write[1] != level_key
+                stale = prev_write is None or (now_mono - prev_write[0]) >= 300.0
+
+                existing_alert = None
+                if elevated:
+                    existing_alert = alert_service.find_open_alert(
+                        db, loc.id, HazardType(primary_hazard)
+                    )
+
+                # An alert must always be linked to its triggering event, so an
+                # elevated band with no open alert forces a write.
+                if band_changed or stale or (elevated and existing_alert is None):
+                    event = DisasterEvent(
+                        location_id=loc.id,
+                        hazard_type=HazardType(primary_hazard),
+                        severity=SeverityLevel(level_key),
+                        risk_score=primary_score / 100.0,
+                        model_version=primary_model_version or "v1.0.0-kerala-live",
+                        record_type=RecordType.PREDICTIVE,
+                        data_source="ksdma-imd-openmeteo-live",
+                        source_reference="https://sdma.kerala.gov.in",
+                        event_time=now_utc,
+                        notes=f"Live 10s sync: {loc.name}. Rain 24h: {rainfall_24h:.1f}mm | News: {(matched_news or {}).get('title', 'No feed item')[:60]}..."
+                    )
+                    db.add(event)
+                    db.flush()
+                    self._last_event_write[loc.id] = (now_mono, level_key)
+                else:
+                    event = None
 
                 # Dispatch alert if elevated
-                if primary_sev.lower() in ("high", "critical"):
+                if elevated and existing_alert is None:
                     alert_create = AlertCreate(
                         location_id=loc.id,
-                        disaster_event_id=event.id,
+                        disaster_event_id=event.id if event else None,
                         title=f"KERALA RISK ALERT: {loc.name}",
                         message=f"{primary_sev.upper()} {primary_hazard.upper()} RISK detected in {loc.district}. Rain: {rainfall_24h:.1f}mm. Source: KSDMA/IMD Live Sync.",
-                        severity=SeverityLevel(primary_sev.lower())
+                        severity=SeverityLevel(level_key)
                     )
                     alert = alert_service.create_alert(db, alert_create)
-                    dispatch_alert_notifications(db, alert)
+                    dispatch_alert_notifications(alert.id)
 
                 updated_states.append({
                     "id": loc.id,
@@ -344,7 +400,7 @@ class KeralaLiveIngestionService:
                     "risk_score": round(primary_score, 1),
                     "risk_level": primary_sev,
                     "rainfall_24h_mm": round(rainfall_24h, 1),
-                    "rainfall_intensity_mm_h": round(max(precip_now, 1.2), 1),
+                    "rainfall_intensity_mm_h": round(intensity_1h, 1),
                     "temperature_c": round(temp, 1),
                     "humidity_pct": round(humidity, 1),
                     "wind_speed_kmh": round(wind, 1),

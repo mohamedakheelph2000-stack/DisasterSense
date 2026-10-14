@@ -1,15 +1,50 @@
 import math
-from typing import Any
-from fastapi import APIRouter, Depends, Query
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.emergency_resource import EmergencyResource, ResourceType, VerificationStatus
-from app.schemas.emergency_resource import PaginatedResourceResponse, EmergencyResourceResponse
+from app.schemas.emergency_resource import (
+    NearbyResponse,
+    PaginatedResourceResponse,
+    EmergencyResourceResponse,
+)
 
 router = APIRouter()
+
+# Universal Indian emergency numbers — public, always available, no network needed.
+EMERGENCY_NUMBERS: List[Dict[str, str]] = [
+    {"name": "Unified Emergency Response", "number": "112", "scope": "National", "description": "Police, fire and ambulance dispatch across India."},
+    {"name": "Police", "number": "100", "scope": "National", "description": "State police control room."},
+    {"name": "Fire & Rescue", "number": "101", "scope": "National", "description": "Fire service and rescue dispatch."},
+    {"name": "Ambulance (Government)", "number": "102", "scope": "National", "description": "Government ambulance service."},
+    {"name": "Emergency Ambulance", "number": "108", "scope": "National", "description": "Free emergency ambulance in most states, including Kerala."},
+    {"name": "District Disaster Control Room", "number": "1077", "scope": "District", "description": "District-level disaster management control room."},
+    {"name": "NDMA Control Room", "number": "1078", "scope": "National", "description": "National Disaster Management Authority helpline."},
+    {"name": "Women Helpline", "number": "1091", "scope": "National", "description": "Emergency assistance for women."},
+    {"name": "Childline", "number": "1098", "scope": "National", "description": "Emergency helpline for children in distress."},
+]
+
+NEARBY_GROUP_LABELS: Dict[str, str] = {
+    ResourceType.HOSPITAL.value: "Hospitals & Clinics",
+    ResourceType.AMBULANCE.value: "Ambulance Services",
+    ResourceType.POLICE_STATION.value: "Police Stations",
+    ResourceType.FIRE_STATION.value: "Fire & Rescue Stations",
+    ResourceType.SHELTER.value: "Shelters",
+    ResourceType.RELIEF_CENTER.value: "Relief Camps",
+    ResourceType.OTHER_EMERGENCY_RESOURCE.value: "Other Emergency Resources",
+}
+
+DEFAULT_NEARBY_TYPES = [
+    ResourceType.HOSPITAL,
+    ResourceType.AMBULANCE,
+    ResourceType.POLICE_STATION,
+    ResourceType.FIRE_STATION,
+]
 
 def haversine_distance_sql(lat1, lon1, lat2, lon2):
     """
@@ -92,6 +127,97 @@ def get_resources(
         page_size=limit,
         pages=pages
     )
+
+@router.get("/emergency-numbers", summary="Universal emergency phone numbers")
+def get_emergency_numbers(user: Any = Depends(get_current_user)) -> Dict[str, Any]:
+    """All-India emergency numbers — available even when external feeds are down."""
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "numbers": EMERGENCY_NUMBERS,
+    }
+
+
+@router.get("/nearby", summary="Nearby hospitals, ambulance, police and fire stations", response_model=NearbyResponse)
+def get_nearby_resources(
+    latitude: float = Query(..., ge=-90.0, le=90.0),
+    longitude: float = Query(..., ge=-180.0, le=180.0),
+    radius_km: float = Query(25.0, ge=0.1, le=500.0),
+    limit_per_type: int = Query(10, ge=1, le=50),
+    types: Optional[str] = Query(
+        None,
+        description="Comma separated resource types. Defaults to hospital, ambulance, police_station, fire_station.",
+    ),
+    db: Session = Depends(get_db),
+    user: Any = Depends(get_current_user),
+) -> Any:
+    if types:
+        wanted: List[ResourceType] = []
+        for raw in types.split(","):
+            value = raw.strip().lower()
+            if not value:
+                continue
+            try:
+                parsed = ResourceType(value)
+            except ValueError:
+                raise HTTPException(status_code=422, detail=f"Unknown resource type '{raw.strip()}'")
+            if parsed not in wanted:
+                wanted.append(parsed)
+        if not wanted:
+            wanted = list(DEFAULT_NEARBY_TYPES)
+    else:
+        wanted = list(DEFAULT_NEARBY_TYPES)
+
+    distance_expr = haversine_distance_sql(latitude, longitude, EmergencyResource.latitude, EmergencyResource.longitude)
+
+    groups: List[Dict[str, Any]] = []
+    totals: Dict[str, int] = {}
+    grand_total = 0
+
+    for rtype in wanted:
+        base = db.query(EmergencyResource).filter(
+            EmergencyResource.resource_type == rtype,
+            distance_expr <= radius_km,
+        )
+        count = base.count()
+        rows = (
+            base.add_columns(distance_expr.label("distance_km"))
+            .order_by(distance_expr)
+            .limit(limit_per_type)
+            .all()
+        )
+
+        items: List[EmergencyResourceResponse] = []
+        for resource, dist in rows:
+            data = {c.name: getattr(resource, c.name) for c in resource.__table__.columns}
+            data["distance_km"] = round(dist, 2)
+            items.append(EmergencyResourceResponse(**data))
+
+        totals[rtype.value] = count
+        grand_total += count
+        groups.append(
+            {
+                "key": rtype.value,
+                "label": NEARBY_GROUP_LABELS.get(rtype.value, rtype.value.replace("_", " ").title()),
+                "count": count,
+                "items": items,
+            }
+        )
+
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+        "radius_km": radius_km,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "groups": groups,
+        "totals": totals,
+        "grand_total": grand_total,
+        "emergency_numbers": EMERGENCY_NUMBERS,
+        "source_note": (
+            "Facility coordinates and phone numbers are sourced from OpenStreetMap "
+            "contributors plus the seeded emergency directory. Always confirm on arrival."
+        ),
+    }
+
 
 @router.get("/{resource_id}", response_model=EmergencyResourceResponse)
 def get_resource(

@@ -2,28 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, errorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { Server, Database, Activity, Mail, Smartphone, CheckCircle2, AlertTriangle, XCircle, Loader2, BrainCircuit, RefreshCw } from "lucide-react";
+import { Activity, Mail, CheckCircle2, AlertTriangle, XCircle, BrainCircuit, RefreshCw } from "lucide-react";
 import { FadeIn } from "@/components/animations/fade-in";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { ForbiddenState, ErrorState, LoadingPanel } from "@/components/ui/states";
 
 export default function SystemStatusPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
 
   const [telemetry, setTelemetry] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && user?.role !== "admin") {
-      router.push("/");
-    }
-  }, [user, authLoading, router]);
 
   const fetchTelemetry = async () => {
     setLoading(true);
@@ -31,8 +25,8 @@ export default function SystemStatusPage() {
     try {
       const res = await apiClient<any>("/system/status");
       setTelemetry(res);
-    } catch (err: any) {
-      setError(err.message || "System telemetry unavailable");
+    } catch (err) {
+      setError(errorMessage(err));
       setTelemetry(null);
     } finally {
       setLoading(false);
@@ -42,10 +36,19 @@ export default function SystemStatusPage() {
   useEffect(() => {
     if (user?.role === "admin") {
        fetchTelemetry();
+    } else if (!authLoading) {
+       setLoading(false);
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
-  if (authLoading || user?.role !== "admin") return null;
+  if (authLoading || user?.role !== "admin") {
+    return (
+      <AppShell>
+        <ForbiddenState message="System telemetry is restricted to administrator accounts." />
+      </AppShell>
+    );
+  }
 
   const renderStatusIcon = (status: string | boolean, isConfig?: boolean) => {
     if (typeof status === 'boolean') {
@@ -73,31 +76,21 @@ export default function SystemStatusPage() {
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-info/20 blur-[150px] rounded-full mix-blend-screen" />
       </div>
 
-      <FadeIn direction="up">
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/50">
-          <div className="flex items-center space-x-3">
-            <Server className="w-8 h-8 text-primary" />
-            <div>
-               <h1 className="text-3xl font-bold tracking-tight">System Telemetry</h1>
-               <p className="text-foreground/60">Admin-only telemetry and operational status</p>
-            </div>
-          </div>
+      <PageHeader
+        eyebrow="Operations"
+        title="System Telemetry"
+        description="Administrator view of backend health, notification pipeline configuration and deployed ML engines."
+        actions={
           <Button variant="outline" size="sm" onClick={fetchTelemetry} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-        </div>
-      </FadeIn>
+        }
+      />
 
       {loading && !telemetry ? (
-        <div className="py-20 flex flex-col items-center justify-center text-foreground/40">
-           <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
-           <span>Loading Telemetry...</span>
-        </div>
+        <LoadingPanel label="Loading telemetry…" />
       ) : error ? (
-         <div className="py-20 flex flex-col items-center justify-center text-foreground/40 text-center">
-            <AlertTriangle className="w-12 h-12 mb-4 text-danger" />
-            <span className="text-lg text-danger">{error}</span>
-         </div>
+        <ErrorState error={new Error(error)} onRetry={fetchTelemetry} />
       ) : telemetry && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           

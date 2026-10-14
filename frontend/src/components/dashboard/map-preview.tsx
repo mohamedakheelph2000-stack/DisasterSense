@@ -10,11 +10,14 @@ import { SpatialAggregationResponse } from "@/lib/api/types/spatial-risk";
 
 export function MapPreview() {
   const [data, setData] = useState<SpatialAggregationResponse | null>(null);
-  
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
     SpatialRiskApi.getAggregation({ time_range: "7d", record_type: "predictive" })
       .then(res => setData(res))
-      .catch(console.error);
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
   }, []);
 
   const criticalCells = data?.cells ? data.cells.filter(c => c?.risk_category === "Critical" || (c as any)?.severity === "critical").length : 0;
@@ -65,9 +68,19 @@ export function MapPreview() {
                 <span className="font-bold">{data.aggregation_metadata?.total_cells ?? (data.cells?.length || 0)}</span>
               </div>
             </div>
-          ) : (
+          ) : error ? (
+            <div className="flex flex-col items-center space-y-2 text-center mb-4 px-2">
+              <AlertTriangle className="h-6 w-6 text-warning" />
+              <p className="text-xs text-warning break-words">{error}</p>
+              <p className="text-[11px] text-muted-foreground">The map preview needs the spatial aggregation endpoint.</p>
+            </div>
+          ) : !loaded ? (
             <div className="flex items-center space-x-2 text-foreground/50 text-sm mb-4">
               <span className="animate-pulse">Aggregating Risk...</span>
+            </div>
+          ) : (
+            <div className="text-center mb-4 px-2">
+              <p className="text-sm text-foreground/60">No spatial risk cells returned for the last 7 days.</p>
             </div>
           )}
 

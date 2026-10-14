@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, ApiError, errorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useApi } from "@/hooks/use-api";
+import { ArrowRight, Siren } from "lucide-react";
 import {
   eventToRiskCardData,
   eventToRecentEvent,
@@ -15,169 +18,292 @@ import { CitizenDashboard } from "@/components/command-center/citizen-dashboard"
 import { ResponderCommandCenter } from "@/components/command-center/responder-dashboard";
 import { DateFilterBar } from "@/components/dashboard/date-filter-bar";
 import { KeralaRiskRadar } from "@/components/dashboard/kerala-risk-radar";
+import { SystemStatusHero } from "@/components/dashboard/system-status-hero";
+import { ErrorBanner, ErrorState, LoadingGrid } from "@/components/ui/states";
+
+interface DashboardPayload {
+  floodRisk: any;
+  landslideRisk: any;
+  alerts: any[];
+  events: any[];
+  weather: any;
+  trends: any[];
+  systemStatus: any;
+  clusters: any[];
+  kerala: {
+    locations: any[];
+    news_feed: any[];
+    overall_kerala_risk: { score: number; level: string };
+  };
+  lastSync: string | null;
+  /** Live low/medium/high warning counts from the 5s analysis engine. */
+  warningSummary: {
+    generated_at: string | null;
+    counts: Record<string, number>;
+    total: number;
+    flood_areas: number;
+    landslide_areas: number;
+  } | null;
+  /** Endpoints that answered but returned nothing usable. */
+  warnings: string[];
+  /** Endpoint failures worth surfacing (network / 5xx), never silently dropped. */
+  failures: string[];
+}
+
+async function settle<T>(
+  endpoint: string
+): Promise<{ ok: boolean; value: T | null; error: unknown }> {
+  try {
+    return { ok: true, value: await apiClient<T>(endpoint), error: null };
+  } catch (error) {
+    return { ok: false, value: null, error };
+  }
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const role = user?.role || "citizen";
 
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [lastSyncTime, setLastSyncTime] = useState<string>("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [keralaData, setKeralaData] = useState<any>({
-    locations: [],
-    news_feed: [],
-    overall_kerala_risk: { score: 0, level: "Low" },
-  });
+  const [manualRefreshing, setManualRefreshing] = useState(false);
 
-  const [data, setData] = useState<any>({
-    floodRisk: null,
-    landslideRisk: null,
-    alerts: [],
-    events: [],
-    weather: null,
-    trends: [],
-    systemStatus: null,
-  });
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const fetcher = useCallback(async (): Promise<DashboardPayload> => {
+    const dateQuery = selectedDate ? `&date=${selectedDate}` : "";
+    const keralaQuery = selectedDate ? `?date=${selectedDate}` : "";
 
-  const fetchDashboardData = useCallback(async (dateParam = selectedDate, isBackground = false) => {
-    if (!isBackground) {
-      setLoading(true);
-      setError(null);
+    const [
+      floodEvents,
+      landslideEvents,
+      alerts,
+      recentEvents,
+      health,
+      environment,
+      trends,
+      clusters,
+      kerala,
+      warningBoard,
+    ] = await Promise.all([
+      settle<any>(`/disaster-events?hazard_type=flood&page_size=1${dateQuery}`),
+      settle<any>(`/disaster-events?hazard_type=landslide&page_size=1${dateQuery}`),
+      settle<any>(`/alerts?status=active&page_size=10${dateQuery}`),
+      settle<any>(`/disaster-events?page_size=10${dateQuery}`),
+      settle<any>("/health"),
+      settle<any>("/environment/current"),
+      settle<any>("/analytics/trends?days=14"),
+      settle<any>("/spatial-risk/clusters?time_range=7d&record_type=predictive"),
+      settle<any>(`/spatial-risk/kerala-live${keralaQuery}`),
+      settle<any>("/warnings/summary"),
+    ]);
+
+    const failures: string[] = [];
+    const warnings: string[] = [];
+    for (const [name, res] of [
+      ["flood events", floodEvents],
+      ["landslide events", landslideEvents],
+      ["alerts", alerts],
+      ["event log", recentEvents],
+      ["health", health],
+      ["environment", environment],
+      ["trends", trends],
+      ["clusters", clusters],
+      ["Kerala live feed", kerala],
+      ["warning board", warningBoard],
+    ] as const) {
+      if (res.ok) continue;
+      const err = res.error;
+      const fatal = err instanceof ApiError && (err.isNetworkError || err.status >= 500);
+      const label = `${name}: ${errorMessage(err)}`;
+      if (fatal) failures.push(label);
+      else if (err instanceof ApiError && err.isForbidden) warnings.push(`${name}: restricted`);
+      else warnings.push(label);
     }
-    setIsRefreshing(true);
 
-    try {
-      const dateQuery = dateParam ? `&date=${dateParam}` : "";
-      const keralaQuery = dateParam ? `?date=${dateParam}` : "";
-
-      const [
-        floodEventsRes,
-        landslideEventsRes,
-        alertsRes,
-        recentEventsRes,
-        healthRes,
-        environmentRes,
-        trendsRes,
-        clustersRes,
-        keralaRes
-      ] = await Promise.all([
-        apiClient<any>(`/disaster-events?hazard_type=flood&page_size=1${dateQuery}`).catch(() => null),
-        apiClient<any>(`/disaster-events?hazard_type=landslide&page_size=1${dateQuery}`).catch(() => null),
-        apiClient<any>(`/alerts?status=active&page_size=10${dateQuery}`).catch(() => null),
-        apiClient<any>(`/disaster-events?page_size=10${dateQuery}`).catch(() => null),
-        apiClient<any>("/health").catch(() => null),
-        apiClient<any>("/environment/current").catch(() => null),
-        apiClient<any>("/analytics/trends?days=14").catch(() => null),
-        apiClient<any>("/spatial-risk/clusters?time_range=7d&record_type=predictive").catch(() => null),
-        apiClient<any>(`/spatial-risk/kerala-live${keralaQuery}`).catch(() => null),
-      ]);
-
-      const floodRisk = floodEventsRes?.items?.length > 0 ? eventToRiskCardData(floodEventsRes.items[0]) : null;
-      const landslideRisk = landslideEventsRes?.items?.length > 0 ? eventToRiskCardData(landslideEventsRes.items[0]) : null;
-      const alerts = (alertsRes?.items || []).map(alertToDashboardAlert);
-      const events = (recentEventsRes?.items || []).map((e: any) => eventToRecentEvent(e));
-      const systemStatus = healthRes ? healthToSystemStatus(healthRes) : null;
-
-      setData({
-        floodRisk,
-        landslideRisk,
-        alerts,
-        events,
-        weather: environmentRes,
-        trends: trendsRes?.items || [],
-        systemStatus,
-        clusters: clustersRes?.clusters || [],
-      });
-
-      if (keralaRes) {
-        setKeralaData({
-          locations: keralaRes.locations || [],
-          news_feed: keralaRes.news_feed || [],
-          overall_kerala_risk: keralaRes.overall_kerala_risk || { score: 0, level: "Low" },
-        });
-        setLastSyncTime(keralaRes.last_sync || new Date().toISOString());
-      }
-    } catch (err: any) {
-      if (!isBackground) {
-        setError(err.message || "Failed to load data.");
-      }
-    } finally {
-      if (!isBackground) setLoading(false);
-      setIsRefreshing(false);
+    // A dead backend is a hard failure — do not render a plausible-looking
+    // empty dashboard as if the system were healthy.
+    if (failures.length >= 3) {
+      const first = new ApiError(
+        0,
+        "The DisasterSense backend is unreachable, so no live data can be shown. Start it with `uvicorn app.main:app --reload` from `backend/`.",
+        "/dashboard"
+      );
+      throw first;
     }
+
+    const floodItem = floodEvents.value?.items?.[0];
+    const landslideItem = landslideEvents.value?.items?.[0];
+
+    return {
+      floodRisk: floodItem ? eventToRiskCardData(floodItem) : null,
+      landslideRisk: landslideItem ? eventToRiskCardData(landslideItem) : null,
+      alerts: (alerts.value?.items || []).map(alertToDashboardAlert),
+      events: (recentEvents.value?.items || []).map((e: any) =>
+        eventToRecentEvent(e)
+      ),
+      weather: environment.value,
+      trends: trends.value?.items || trends.value || [],
+      systemStatus: health.value ? healthToSystemStatus(health.value) : null,
+      clusters: clusters.value?.clusters || [],
+      kerala: {
+        locations: kerala.value?.locations || [],
+        news_feed: kerala.value?.news_feed || [],
+        overall_kerala_risk: kerala.value?.overall_kerala_risk || {
+          score: 0,
+          level: "Low",
+        },
+      },
+      lastSync: kerala.value?.last_sync || null,
+      warningSummary: warningBoard.value || null,
+      warnings,
+      failures,
+    };
   }, [selectedDate]);
 
-  // Initial fetch and on date change
-  useEffect(() => {
-    fetchDashboardData(selectedDate, false);
-  }, [selectedDate, fetchDashboardData]);
+  const { data, error, loading, refreshing, refetch, lastUpdated } =
+    useApi<DashboardPayload>(fetcher, [selectedDate], {
+      // Historical review mode must not be overwritten by the live poll.
+      refreshMs: selectedDate ? 0 : 5_000,
+    });
 
-  // 10-Second Auto-Refresh in Live mode (!selectedDate)
-  useEffect(() => {
-    if (selectedDate) return; // Do not auto-refresh when reviewing historical/specific date
-
-    const timer = setInterval(() => {
-      fetchDashboardData("", true);
-    }, 10000); // 10 seconds continuous stream
-
-    return () => clearInterval(timer);
-  }, [selectedDate, fetchDashboardData]);
+  const payload = data;
+  const activeError = error;
+  const activeLoading = loading;
+  const activeRefreshing = refreshing;
+  const activeRefetch = refetch;
+  const activeUpdated = lastUpdated;
 
   const handleManualRefresh = async () => {
-    setIsRefreshing(true);
+    setManualRefreshing(true);
     try {
-      await apiClient("/spatial-risk/kerala-sync", { method: "POST" }).catch(() => null);
-    } finally {
-      fetchDashboardData(selectedDate, false);
+      await apiClient("/spatial-risk/kerala-sync", { method: "POST" });
+    } catch {
+      // The sync trigger is best-effort; the next poll will recover.
     }
+    await activeRefetch({ background: true });
+    setManualRefreshing(false);
   };
 
-  const floodScore = data.floodRisk?.risk_score || 0;
-  const landslideScore = data.landslideRisk?.risk_score || 0;
-  const overallScore = Math.max(floodScore, landslideScore, keralaData.overall_kerala_risk?.score || 0);
-  const overallLevel = overallScore >= 80 ? "CRITICAL" : overallScore >= 60 ? "HIGH" : overallScore >= 40 ? "MODERATE" : "LOW";
+  const floodScore = payload?.floodRisk?.risk_score || 0;
+  const landslideScore = payload?.landslideRisk?.risk_score || 0;
+  const overallScore = Math.max(
+    floodScore,
+    landslideScore,
+    payload?.kerala.overall_kerala_risk?.score || 0
+  );
+  const overallLevel =
+    overallScore >= 80
+      ? "CRITICAL"
+      : overallScore >= 60
+        ? "HIGH"
+        : overallScore >= 40
+          ? "MODERATE"
+          : "LOW";
 
   return (
     <AppShell>
-      {/* Date Filter Bar & 10s Live Countdown */}
+      <SystemStatusHero />
+
+      <LiveWarningStrip summary={payload?.warningSummary ?? null} />
+
       <DateFilterBar
         selectedDate={selectedDate}
-        onDateChange={(d) => setSelectedDate(d)}
+        onDateChange={setSelectedDate}
         onRefreshNow={handleManualRefresh}
-        isRefreshing={isRefreshing}
-        lastSyncTime={lastSyncTime}
+        isRefreshing={activeRefreshing || manualRefreshing}
+        lastSyncTime={payload?.lastSync || ""}
+        lastUpdated={activeUpdated ? activeUpdated.toISOString() : ""}
       />
 
-      {/* Real-Time Kerala Risk Radar & Live News Stream */}
-      <KeralaRiskRadar
-        locations={keralaData.locations}
-        newsFeed={keralaData.news_feed}
-        overallRisk={keralaData.overall_kerala_risk}
-        lastSync={lastSyncTime}
-        loading={loading}
-      />
+      {activeError ? (
+        <div className="mb-5">
+          <ErrorState error={activeError} onRetry={() => activeRefetch()} />
+        </div>
+      ) : null}
 
-      {/* Role-Specific Dashboard Views */}
-      {role === "citizen" ? (
-        <CitizenDashboard 
-          data={data} 
-          loading={loading} 
-          error={error} 
-          onRetry={() => fetchDashboardData(selectedDate, false)}
-          overallScore={overallScore}
-          overallLevel={overallLevel}
-        />
-      ) : (
-        <ResponderCommandCenter 
-          data={data} 
-          loading={loading} 
-          error={error} 
-          onRetry={() => fetchDashboardData(selectedDate, false)} 
-        />
+      {!activeError && payload?.warnings.length ? (
+        <div className="mb-5 space-y-2">
+          {payload.warnings.map((w) => (
+            <ErrorBanner key={w} error={new Error(w)} />
+          ))}
+        </div>
+      ) : null}
+
+      {!activeError && activeLoading ? (
+        <LoadingGrid rows={3} className="mb-5" />
+      ) : null}
+
+      {payload && (
+        <>
+          <KeralaRiskRadar
+            locations={payload.kerala.locations}
+            newsFeed={payload.kerala.news_feed}
+            overallRisk={payload.kerala.overall_kerala_risk}
+            lastSync={payload.lastSync || ""}
+            loading={activeLoading}
+          />
+
+          {role === "citizen" ? (
+            <CitizenDashboard
+              data={payload}
+              loading={activeLoading}
+              error={null}
+              onRetry={() => activeRefetch()}
+              overallScore={overallScore}
+              overallLevel={overallLevel}
+            />
+          ) : (
+            <ResponderCommandCenter
+              data={payload}
+              loading={activeLoading}
+              error={null}
+              onRetry={() => activeRefetch()}
+            />
+          )}
+        </>
       )}
     </AppShell>
+  );
+}
+
+const STRIP_TONES = [
+  { key: "high", label: "High", classes: "border-danger/40 bg-danger/10 text-danger" },
+  { key: "medium", label: "Medium", classes: "border-warning/40 bg-warning/10 text-warning" },
+  { key: "low", label: "Low", classes: "border-success/40 bg-success/10 text-success" },
+] as const;
+
+function LiveWarningStrip({ summary }: { summary: DashboardPayload["warningSummary"] }) {
+  if (!summary) return null;
+  const counts = summary.counts || {};
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-surface/60 px-4 py-3">
+      <span className="flex items-center gap-2 text-xs font-semibold tracking-[0.12em] text-foreground/85">
+        <Siren className="h-4 w-4 text-primary" />
+        LIVE WARNINGS
+        <span className="h-1.5 w-1.5 animate-blink rounded-full bg-success shadow-[0_0_8px_hsl(var(--success))]" />
+      </span>
+
+      {STRIP_TONES.map((tone) => (
+        <span
+          key={tone.key}
+          className={`rounded-lg border px-2.5 py-1 font-mono text-[11px] ${tone.classes}`}
+        >
+          {tone.label.toUpperCase()} {counts[tone.key] ?? 0}
+        </span>
+      ))}
+
+      <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+        {summary.total} areas · {summary.flood_areas} flood · {summary.landslide_areas} landslide
+        {summary.generated_at
+          ? ` · analysed ${new Date(summary.generated_at).toLocaleTimeString()}`
+          : ""}
+      </span>
+
+      <Link
+        href="/warnings"
+        className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+      >
+        Open warning board <ArrowRight className="h-3 w-3" />
+      </Link>
+    </div>
   );
 }

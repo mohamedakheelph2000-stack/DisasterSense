@@ -1,26 +1,42 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
+import { MotionConfig } from "framer-motion";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/auth-context";
 
-const outfit = Outfit({ subsets: ["latin"] });
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "DisasterSense - AI-Assisted Disaster Intelligence",
-  description: "AI-assisted disaster intelligence for flood and landslide risk, emergency-resource planning, alerts, maps, and analytics",
+  title: {
+    default: "DisasterSense · Operations Console",
+    template: "%s · DisasterSense",
+  },
+  description:
+    "Live flood and landslide risk intelligence for Kerala: telemetry, ML inference, incident alerts, resource dispatch and analytics.",
+  applicationName: "DisasterSense",
+  keywords: ["disaster", "flood", "landslide", "Kerala", "risk", "operations"],
+};
+
+export const viewport: Viewport = {
+  themeColor: "#070912",
+  width: "device-width",
+  initialScale: 1,
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${outfit.className} font-sans antialiased bg-background text-foreground min-h-screen`}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+    <html lang="en" className={`dark ${outfit.variable}`} suppressHydrationWarning>
+      <body className={`${outfit.className} min-h-screen bg-background font-sans text-foreground antialiased`}>
+        <MotionConfig reducedMotion="user">
+          <AuthProvider>{children}</AuthProvider>
+        </MotionConfig>
       </body>
     </html>
   );

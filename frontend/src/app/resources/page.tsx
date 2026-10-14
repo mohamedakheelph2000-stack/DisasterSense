@@ -11,6 +11,7 @@ import {
   Search, 
   MapPin, 
   Phone, 
+  PhoneCall,
   ShieldCheck, 
   Cross, 
   Flame, 
@@ -20,10 +21,23 @@ import {
   Compass,
   Loader2,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Ambulance,
+  Siren,
 } from "lucide-react";
 import { resourcesApi, EmergencyResource, ResourceType } from "@/lib/api/resources";
+import { ingestionApi, NearbyResponse, EmergencyNumber } from "@/lib/api/ingestion";
+import { errorMessage } from "@/lib/api/client";
 import Link from "next/link";
+
+const NEARBY_DEFAULT_RADIUS_KM = 25;
+
+const NEARBY_PRESETS: Array<{ label: string; lat: number; lng: number }> = [
+  { label: "Wayanad (Meppadi)", lat: 11.552, lng: 76.1245 },
+  { label: "Kochi", lat: 9.9312, lng: 76.2673 },
+  { label: "Kozhikode", lat: 11.2588, lng: 75.7804 },
+  { label: "Thiruvananthapuram", lat: 8.5241, lng: 76.9366 },
+];
 
 export default function EmergencyResourcesPage() {
   const [resources, setResources] = useState<EmergencyResource[]>([]);
@@ -37,9 +51,84 @@ export default function EmergencyResourcesPage() {
 
   // Proximity Search State
   const [useProximity, setUseProximity] = useState(false);
+  const [geoNotice, setGeoNotice] = useState<string | null>(null);
   const [proximityLat, setProximityLat] = useState<number | string>(11.5520); // Default to Meppadi
   const [proximityLng, setProximityLng] = useState<number | string>(76.1245);
   const [radiusKm, setRadiusKm] = useState<number>(30);
+
+  // ── Near me: hospitals / ambulance / police / fire with phone numbers ───
+  const [nearbyLocation, setNearbyLocation] = useState<{
+    lat: number;
+    lng: number;
+    label: string;
+  }>({ lat: NEARBY_PRESETS[0].lat, lng: NEARBY_PRESETS[0].lng, label: NEARBY_PRESETS[0].label });
+  const [nearbyRadius, setNearbyRadius] = useState<number>(NEARBY_DEFAULT_RADIUS_KM);
+  const [nearby, setNearby] = useState<NearbyResponse | null>(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [emergencyNumbers, setEmergencyNumbers] = useState<EmergencyNumber[]>([]);
+  const [numbersError, setNumbersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    ingestionApi
+      .getEmergencyNumbers()
+      .then((res) => {
+        if (!cancelled) setEmergencyNumbers(res.numbers || []);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setNumbersError(errorMessage(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchNearby = useCallback(async () => {
+    setNearbyLoading(true);
+    setNearbyError(null);
+    try {
+      const res = await ingestionApi.getNearby({
+        latitude: nearbyLocation.lat,
+        longitude: nearbyLocation.lng,
+        radius_km: nearbyRadius,
+        limit_per_type: 8,
+      });
+      setNearby(res);
+    } catch (err) {
+      setNearbyError(errorMessage(err));
+    } finally {
+      setNearbyLoading(false);
+    }
+  }, [nearbyLocation.lat, nearbyLocation.lng, nearbyRadius]);
+
+  useEffect(() => {
+    void fetchNearby();
+  }, [fetchNearby]);
+
+  const locateMe = () => {
+    setNearbyError(null);
+    if (!navigator.geolocation) {
+      setNearbyError("This browser does not expose a geolocation API — pick a preset below instead.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNearbyLocation({
+          lat: Number(pos.coords.latitude.toFixed(4)),
+          lng: Number(pos.coords.longitude.toFixed(4)),
+          label: "Your current location",
+        });
+      },
+      (err) => {
+        setNearbyError(
+          err.code === err.PERMISSION_DENIED
+            ? "Location permission denied — pick a preset location below."
+            : "Could not read your browser location — pick a preset location below."
+        );
+      }
+    );
+  };
 
   const fetchResources = useCallback(async () => {
     setLoading(true);
@@ -65,9 +154,8 @@ export default function EmergencyResourcesPage() {
 
       const res = await resourcesApi.getResources(params);
       setResources(res.items || []);
-    } catch (err: any) {
-      console.error("Failed to load emergency resources:", err);
-      setError(err?.message || "Failed to load emergency resources. Please try again.");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -131,6 +219,7 @@ export default function EmergencyResourcesPage() {
   };
 
   const handleUseCurrentLocation = () => {
+    setGeoNotice(null);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -139,8 +228,11 @@ export default function EmergencyResourcesPage() {
           setUseProximity(true);
         },
         (err) => {
-          console.warn("Geolocation denied or unavailable:", err);
-          alert("Could not access browser location. Please enter coordinates manually.");
+          setGeoNotice(
+            err.code === err.PERMISSION_DENIED
+              ? "Location permission denied - enter coordinates manually or use a quick-focus preset."
+              : "Could not read your browser location - enter coordinates manually or use a quick-focus preset."
+          );
         }
       );
     }
@@ -188,6 +280,155 @@ export default function EmergencyResourcesPage() {
               </Button>
             </Link>
           </div>
+        </div>
+      </FadeIn>
+
+      {/* ── Universal emergency numbers ─────────────────────────────────── */}
+      <FadeIn delay={0.05}>
+        <div className="mb-8 rounded-xl border border-danger/25 bg-danger/[0.06] p-5 backdrop-blur-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Siren className="h-5 w-5 text-danger" />
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Emergency call numbers</h2>
+                <p className="text-xs text-muted-foreground">
+                  India-wide dispatch lines — available even when every live feed is offline.
+                </p>
+              </div>
+            </div>
+            {numbersError && (
+              <span role="alert" className="text-xs text-warning">
+                {numbersError}
+              </span>
+            )}
+          </div>
+
+          {emergencyNumbers.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {emergencyNumbers.map((number) => (
+                <a
+                  key={number.number}
+                  href={`tel:${number.number}`}
+                  className="group rounded-lg border border-border/60 bg-surface/60 px-3 py-2.5 transition-colors hover:border-danger/50 hover:bg-danger/10"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium text-foreground/85">{number.name}</span>
+                    <PhoneCall className="h-3.5 w-3.5 shrink-0 text-foreground/40 transition-colors group-hover:text-danger" />
+                  </div>
+                  <p className="mt-1 font-mono text-lg font-semibold tracking-wide text-danger">
+                    {number.number}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{number.description}</p>
+                </a>
+              ))}
+            </div>
+          ) : (
+            !numbersError && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading emergency numbers…
+              </div>
+            )
+          )}
+        </div>
+      </FadeIn>
+
+      {/* ── Nearby hospitals / ambulance / police / fire ──────────────────── */}
+      <FadeIn delay={0.1}>
+        <div className="mb-8 rounded-xl border border-border/60 bg-surface-muted/30 p-5 backdrop-blur-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Navigation className="h-5 w-5 text-primary" />
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Emergency services near you</h2>
+                <p className="text-xs text-muted-foreground">
+                  Hospitals, ambulance services, police stations and fire stations — sorted by distance,
+                  with tap-to-call numbers.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="hud-label">
+                {nearbyLocation.label} · {nearbyRadius} km
+              </span>
+              <Button variant="outline" size="sm" onClick={locateMe} disabled={nearbyLoading}>
+                <Navigation className="h-3.5 w-3.5" />
+                My location
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void fetchNearby()} disabled={nearbyLoading}>
+                <RefreshCw className={nearbyLoading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-center gap-4">
+            <label className="flex min-w-[220px] flex-1 items-center gap-3 text-xs text-foreground/70">
+              <span className="whitespace-nowrap">Search radius</span>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                step="5"
+                value={nearbyRadius}
+                onChange={(e) => setNearbyRadius(Number(e.target.value))}
+                className="flex-1 accent-primary"
+              />
+              <span className="w-14 text-right font-mono text-foreground/80">{nearbyRadius} km</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-foreground/50">Jump to:</span>
+              {NEARBY_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => setNearbyLocation({ lat: preset.lat, lng: preset.lng, label: preset.label })}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                    nearbyLocation.label === preset.label
+                      ? "bg-primary text-white border-primary"
+                      : "bg-surface hover:bg-surface-muted border-border/50 text-foreground/80 hover:text-foreground"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {nearbyError && (
+            <p role="alert" className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+              {nearbyError}
+            </p>
+          )}
+
+          {nearbyLoading && !nearby ? (
+            <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              Locating nearby emergency services…
+            </div>
+          ) : nearbyError && !nearby ? (
+            <Button variant="outline" size="sm" onClick={() => void fetchNearby()}>
+              Try again
+            </Button>
+          ) : nearby && nearby.groups.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
+              {nearby.groups.map((group) => (
+                <NearbyGroupCard key={group.key} group={group} radius={nearbyRadius} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-surface/40 px-4 py-6 text-center text-xs text-muted-foreground">
+              No emergency facilities of these types are recorded within {nearbyRadius} km of{" "}
+              {nearbyLocation.label}. Widen the radius or run{" "}
+              <code className="font-mono text-foreground/70">
+                python scripts/seed_emergency_resources_osm.py
+              </code>{" "}
+              to import OpenStreetMap facilities.
+            </div>
+          )}
+
+          {nearby && (
+            <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">{nearby.source_note}</p>
+          )}
         </div>
       </FadeIn>
 
@@ -260,6 +501,12 @@ export default function EmergencyResourcesPage() {
             </div>
           </div>
 
+          {geoNotice ? (
+            <p role="status" className="mt-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+              {geoNotice}
+            </p>
+          ) : null}
+
           {/* Quick Preset Location Chips */}
           <div className="mt-4 pt-3 border-t border-border/30 flex flex-wrap items-center gap-2">
             <span className="text-xs text-foreground/50">Quick Focus:</span>
@@ -285,7 +532,7 @@ export default function EmergencyResourcesPage() {
               onClick={() => setPresetLocation(11.2721, 75.8368)}
               className="text-xs px-2.5 py-1 rounded bg-surface hover:bg-surface-muted border border-border/50 text-foreground/80 hover:text-foreground transition-colors"
             >
-              Kozhikode Medical Center
+              Kozhikode
             </button>
           </div>
         </div>
@@ -506,5 +753,107 @@ export default function EmergencyResourcesPage() {
         )}
       </FadeIn>
     </AppShell>
+  );
+}
+
+const NEARBY_GROUP_META: Record<string, { icon: typeof Cross; chip: string; empty: string }> = {
+  hospital: {
+    icon: Cross,
+    chip: "border-red-500/30 bg-red-500/10 text-red-400",
+    empty: "No hospitals or clinics in range",
+  },
+  ambulance: {
+    icon: Ambulance,
+    chip: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    empty: "No ambulance services listed in range",
+  },
+  police_station: {
+    icon: Shield,
+    chip: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    empty: "No police stations in range",
+  },
+  fire_station: {
+    icon: Flame,
+    chip: "border-orange-500/30 bg-orange-500/10 text-orange-400",
+    empty: "No fire stations in range",
+  },
+};
+
+function NearbyGroupCard({
+  group,
+  radius,
+}: {
+  group: NearbyResponse["groups"][number];
+  radius: number;
+}) {
+  const meta = NEARBY_GROUP_META[group.key] ?? {
+    icon: Building2,
+    chip: "border-border bg-surface/60 text-foreground/70",
+    empty: "Nothing in range",
+  };
+  const Icon = meta.icon;
+
+  return (
+    <div className="flex flex-col rounded-xl border border-border/60 bg-surface/50">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className={`flex h-7 w-7 items-center justify-center rounded-lg border ${meta.chip}`}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <span className="text-xs font-semibold text-foreground/90">{group.label}</span>
+        </div>
+        <span className="font-mono text-[11px] text-muted-foreground">{group.count} in {radius} km</span>
+      </div>
+
+      {group.items.length === 0 ? (
+        <p className="px-4 py-5 text-center text-[11px] text-muted-foreground">{meta.empty}</p>
+      ) : (
+        <ul className="divide-y divide-border/50">
+          {group.items.map((item) => {
+            const dial = (item.phone_number || item.contact_info || "").replace(/[^\d+]/g, "");
+            const phone = item.phone_number || item.contact_info;
+            return (
+              <li key={item.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 text-xs font-medium leading-snug text-foreground/90">{item.name}</p>
+                  {item.distance_km !== undefined && (
+                    <span className="shrink-0 rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] text-primary">
+                      {item.distance_km} km
+                    </span>
+                  )}
+                </div>
+                {item.address && (
+                  <p className="mt-1 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                    {item.address}
+                  </p>
+                )}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  {phone ? (
+                    <a
+                      href={`tel:${dial}`}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[11px] font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {phone}
+                    </a>
+                  ) : (
+                    <span className="font-mono text-[11px] text-muted-foreground">No phone on record</span>
+                  )}
+                  <a
+                    href={`https://www.openstreetmap.org/?mlat=${item.latitude}&mlon=${item.longitude}#map=17/${item.latitude}/${item.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                  >
+                    map <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

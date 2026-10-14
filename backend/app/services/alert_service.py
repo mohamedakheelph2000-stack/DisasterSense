@@ -33,6 +33,34 @@ def get_alert(db: Session, alert_id: int) -> Optional[Alert]:
     return db.get(Alert, alert_id)
 
 
+_OPEN_STATUSES = (AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED, AlertStatus.RESPONSE_IN_PROGRESS)
+
+
+def find_open_alert(db: Session, location_id: int, hazard_type) -> Optional[Alert]:
+    """
+    Return an existing non-closed alert for the same location + hazard, or None.
+
+    Used to prevent background workers from re-creating the same alert on every
+    polling cycle while an earlier one is still open.
+    """
+    from app.models.disaster_event import DisasterEvent
+
+    return (
+        db.execute(
+            select(Alert)
+            .join(DisasterEvent, Alert.disaster_event_id == DisasterEvent.id)
+            .where(
+                Alert.location_id == location_id,
+                Alert.status.in_(_OPEN_STATUSES),
+                DisasterEvent.hazard_type == hazard_type,
+            )
+            .order_by(Alert.created_at.desc())
+        )
+        .scalars()
+        .first()
+    )
+
+
 def list_alerts(
     db: Session,
     *,

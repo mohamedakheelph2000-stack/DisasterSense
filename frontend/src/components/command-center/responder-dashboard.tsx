@@ -1,4 +1,3 @@
-import { SystemStatusHero } from "@/components/dashboard/system-status-hero";
 import { MLSystemStatus } from "@/components/dashboard/ml-system-status";
 import { MapPreview } from "@/components/dashboard/map-preview";
 import { FadeIn } from "@/components/animations/fade-in";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { IncidentQueue } from "./incident-queue";
 import { Counter } from "@/components/animations/counter";
 import { RegionalSituation } from "@/components/dashboard/regional-situation";
+import { parseSeverityFromTitle } from "@/lib/api/adapters";
 
 export function ResponderCommandCenter({ data, loading, error, onRetry }: any) {
   if (error) {
@@ -23,8 +23,8 @@ export function ResponderCommandCenter({ data, loading, error, onRetry }: any) {
   const activeIncidents = data.alerts?.filter((a: any) => a.status === 'active') || [];
   const respondingIncidents = data.alerts?.filter((a: any) => a.status === 'acknowledged' || a.status === 'response_in_progress') || [];
   const highCriticalAlerts = data.alerts?.filter((a: any) => {
-      const sev = a.__mock_meta?.severity || "info"; // Simplified for dashboard KPIs
-      return sev === 'critical' || sev === 'high' || a.title?.includes('CRITICAL') || a.title?.includes('HIGH');
+      const sev = a.severity || parseSeverityFromTitle(a.title);
+      return sev === "critical" || sev === "high";
   }) || [];
   const totalEvents = data.events?.length || 0;
 

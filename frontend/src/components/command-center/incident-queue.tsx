@@ -1,12 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShieldAlert, AlertTriangle, Info, Clock, ExternalLink } from "lucide-react";
+import { ShieldAlert, AlertTriangle, Clock, ExternalLink } from "lucide-react";
 import { AlertRead } from "@/lib/api/types/alert";
 import Link from "next/link";
 import { parseSeverityFromTitle } from "@/lib/api/adapters";
 
 interface IncidentQueueProps {
-  incidents: (AlertRead & { __mock_meta?: any })[];
+  incidents: AlertRead[];
   loading: boolean;
 }
 
@@ -31,8 +31,8 @@ export function IncidentQueue({ incidents, loading }: IncidentQueueProps) {
 
   // Sort CRITICAL -> HIGH -> MODERATE -> LOW
   const sortedIncidents = [...incidents].sort((a, b) => {
-    const sevA = a.severity || a.__mock_meta?.severity || parseSeverityFromTitle(a.title) || "info";
-    const sevB = b.severity || b.__mock_meta?.severity || parseSeverityFromTitle(b.title) || "info";
+    const sevA = a.severity || parseSeverityFromTitle(a.title) || "info";
+    const sevB = b.severity || parseSeverityFromTitle(b.title) || "info";
     const order = { critical: 4, high: 3, moderate: 2, low: 1, info: 0 };
     return (order[sevB as keyof typeof order] || 0) - (order[sevA as keyof typeof order] || 0);
   });
@@ -49,7 +49,7 @@ export function IncidentQueue({ incidents, loading }: IncidentQueueProps) {
       
       <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
         {sortedIncidents.map((incident) => {
-          const severity = incident.severity || incident.__mock_meta?.severity || parseSeverityFromTitle(incident.title) || "info";
+          const severity = incident.severity || parseSeverityFromTitle(incident.title) || "info";
           const isCritical = severity === "critical";
           const isHigh = severity === "high";
 
@@ -68,7 +68,7 @@ export function IncidentQueue({ incidents, loading }: IncidentQueueProps) {
                   <h4 className="font-semibold text-foreground/90">{incident.title}</h4>
                   <div className="flex items-center text-xs text-foreground/60 gap-3 mt-1">
                     <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> {new Date(incident.created_at).toLocaleTimeString()}</span>
-                    <span>{incident.__mock_meta?.location || `Loc ID: ${incident.location_id}`}</span>
+                    <span>{incident.cluster_metadata?.location || `Loc ID: ${incident.location_id}`}</span>
                   </div>
                 </div>
                 <div className="flex items-center text-primary/70 hover:text-primary transition-colors text-sm font-medium">

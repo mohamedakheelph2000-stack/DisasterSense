@@ -65,11 +65,12 @@ export function DetailedRiskCard({ type, data, loading }: DetailedRiskCardProps)
         <h4 className="text-xs font-semibold text-foreground/50 uppercase mb-3">Key Contributing Factors</h4>
         <div className="space-y-4">
           {data.feature_impacts?.map((feature: FeatureImpact, idx: number) => {
-            const pct = Math.min(100, Math.round(feature.importance * 100));
+            const pct = Math.min(100, Math.round((feature?.importance || 0) * 100));
+            const featureName = String(feature?.feature || (feature as any)?.name || 'Contributing Factor').replace(/_/g, ' ');
             return (
               <div key={idx}>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-foreground/80">{feature.feature.replace(/_/g, ' ')}</span>
+                  <span className="text-foreground/80 capitalize">{featureName}</span>
                   <span className="font-mono text-foreground/60">{pct}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-surface-muted rounded-full overflow-hidden">

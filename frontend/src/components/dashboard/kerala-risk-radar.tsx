@@ -3,15 +3,11 @@
 import React, { useState } from "react";
 import {
   ShieldAlert,
-  AlertTriangle,
   Droplets,
   Mountain,
   Newspaper,
   ExternalLink,
   Search,
-  Filter,
-  Activity,
-  Wind,
   Compass,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -72,18 +68,24 @@ export function KeralaRiskRadar({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<"all" | "high" | "flood" | "landslide">("all");
 
-  const filteredLocations = locations.filter((loc) => {
-    const matchesSearch =
-      loc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      loc.district.toLowerCase().includes(searchTerm.toLowerCase());
+  const safeLocations = Array.isArray(locations) ? locations : [];
+  const safeNewsFeed = Array.isArray(newsFeed) ? newsFeed : [];
+
+  const filteredLocations = safeLocations.filter((loc) => {
+    if (!loc) return false;
+    const name = String(loc.name || "").toLowerCase();
+    const district = String(loc.district || "").toLowerCase();
+    const term = (searchTerm || "").toLowerCase();
+    const matchesSearch = name.includes(term) || district.includes(term);
 
     if (!matchesSearch) return false;
 
+    const level = String(loc.risk_level || "").toLowerCase();
     if (selectedFilter === "high") {
       return (
-        loc.risk_level.toLowerCase() === "high" ||
-        loc.risk_level.toLowerCase() === "critical" ||
-        loc.risk_score >= 40
+        level === "high" ||
+        level === "critical" ||
+        (Number(loc.risk_score) || 0) >= 40
       );
     }
     if (selectedFilter === "flood") return loc.hazard_type === "flood";
@@ -91,8 +93,8 @@ export function KeralaRiskRadar({
     return true;
   });
 
-  const getRiskBadge = (level: string) => {
-    switch (level.toLowerCase()) {
+  const getRiskBadge = (level?: string) => {
+    switch (String(level || "").toLowerCase()) {
       case "critical":
         return <Badge variant="critical">CRITICAL</Badge>;
       case "high":
@@ -134,12 +136,23 @@ export function KeralaRiskRadar({
           {/* Quick Metrics */}
           <div className="flex items-center gap-3">
             <div className="bg-surface-muted/80 border border-border/80 px-4 py-2.5 rounded-xl text-center">
+              <span className="text-[11px] uppercase text-foreground/50 font-semibold block">Overall Risk</span>
+              <span className="text-lg font-bold font-mono text-foreground tabular-nums">
+                {typeof overallRisk?.score === "number" ? Math.round(overallRisk.score) : "—"}
+              </span>
+              <span className="block text-[10px] uppercase font-semibold text-foreground/50">
+                {overallRisk?.level ? String(overallRisk.level) : "unknown"}
+              </span>
+            </div>
+            <div className="bg-surface-muted/80 border border-border/80 px-4 py-2.5 rounded-xl text-center">
               <span className="text-[11px] uppercase text-foreground/50 font-semibold block">Zones Monitored</span>
-              <span className="text-lg font-bold font-mono text-foreground">{locations.length || 14} Districts</span>
+              <span className="text-lg font-bold font-mono text-foreground">{safeLocations.length || 14} Districts</span>
             </div>
             <div className="bg-surface-muted/80 border border-border/80 px-4 py-2.5 rounded-xl text-center">
               <span className="text-[11px] uppercase text-foreground/50 font-semibold block">Sync Cadence</span>
-              <span className="text-lg font-bold font-mono text-emerald-400">10 Seconds</span>
+              <span className="text-lg font-bold font-mono text-emerald-400">
+                {loading ? "Syncing…" : "10 Seconds"}
+              </span>
             </div>
           </div>
         </div>
@@ -164,7 +177,7 @@ export function KeralaRiskRadar({
               onClick={() => setSelectedFilter("all")}
               className="text-xs rounded-full px-3"
             >
-              All Zones ({locations.length})
+              All Zones ({safeLocations.length})
             </Button>
             <Button
               size="sm"
@@ -295,22 +308,22 @@ export function KeralaRiskRadar({
           </div>
 
           <div className="bg-surface/80 border border-border/70 rounded-2xl p-4 backdrop-blur-md shadow-lg space-y-3 max-h-[640px] overflow-y-auto">
-            {newsFeed.length === 0 ? (
+            {safeNewsFeed.length === 0 ? (
               <div className="text-center py-8 text-foreground/50 text-xs">
                 Connecting to KSDMA and online news wire...
               </div>
             ) : (
-              newsFeed.map((news, i) => (
+              safeNewsFeed.map((news, i) => (
                 <div
                   key={i}
                   className="p-3 rounded-xl bg-surface-muted/50 border border-border/50 hover:border-primary/40 transition-all text-xs space-y-1.5 group"
                 >
                   <div className="flex items-center justify-between gap-1 text-[10px] text-foreground/50">
                     <span className="font-semibold text-primary truncate max-w-[170px]">
-                      {news.source}
+                      {news.source || "News Bulletin"}
                     </span>
                     <span className="font-mono text-[9px]">
-                      {news.pubDate ? news.pubDate.slice(0, 16) : "Live"}
+                      {news.pubDate ? String(news.pubDate).slice(0, 16) : "Live"}
                     </span>
                   </div>
 

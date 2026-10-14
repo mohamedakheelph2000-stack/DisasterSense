@@ -33,33 +33,69 @@ def run_all_checks():
     except Exception as e:
         check("Health Check", False, str(e))
 
-    # 2. User Authentication Flow (Citizen, Responder, Admin)
+    # 2. User Authentication Flow (Citizen + Admin)
+    #
+    # Self-registration is deliberately NOT allowed to choose a role: the
+    # public schema drops `role`/`is_active`, so a request that asks for
+    # "admin" must still come back as a citizen. Admin-scoped checks below
+    # therefore use the account created by scripts/seed_demo_data.py.
     ts = int(time.time())
-    admin_email = f"admin_{ts}@example.com"
-    admin_pw = "Password123!"
+    citizen_email = f"auditor_{ts}@example.com"
+    citizen_pw = "Password123!"
 
-    # Register Admin
+    # Register Citizen (a hostile `role` field in the body must be ignored)
+    registered_role = None
     try:
         r = requests.post(f"{BASE_URL}/auth/register", json={
-            "email": admin_email,
-            "plain_password": admin_pw,
-            "full_name": "Auditor Admin",
-            "role": "admin"
+            "email": citizen_email,
+            "plain_password": citizen_pw,
+            "full_name": "System Auditor",
+            "role": "admin",
+            "is_active": False,
         })
-        check("Register Admin", r.status_code == 201, f"(id={r.json().get('id')})")
+        registered_role = r.json().get("role")
+        check(
+            "Register Citizen (role escalation blocked)",
+            r.status_code == 201 and registered_role == "citizen",
+            f"(status={r.status_code}, role={registered_role})",
+        )
     except Exception as e:
-        check("Register Admin", False, str(e))
+        check("Register Citizen (role escalation blocked)", False, str(e))
 
-    # Login Admin
+    # Login Citizen
+    citizen_token = None
+    try:
+        r = requests.post(f"{BASE_URL}/auth/login", data={"username": citizen_email, "password": citizen_pw})
+        citizen_token = r.json().get("access_token")
+        check("Login Citizen", r.status_code == 200 and citizen_token is not None)
+    except Exception as e:
+        check("Login Citizen", False, str(e))
+
+    headers_citizen = {"Authorization": f"Bearer {citizen_token}"}
+
+    # Login seeded Admin (created by scripts/seed_demo_data.py)
+    admin_email = "admin@disastersense.org"
+    admin_pw = "Password123!"
     admin_token = None
     try:
         r = requests.post(f"{BASE_URL}/auth/login", data={"username": admin_email, "password": admin_pw})
         admin_token = r.json().get("access_token")
-        check("Login Admin", r.status_code == 200 and admin_token is not None)
+        check(
+            "Login Admin (seeded account)",
+            r.status_code == 200 and admin_token is not None,
+            "" if admin_token else "- run `python scripts/seed_demo_data.py` first",
+        )
     except Exception as e:
-        check("Login Admin", False, str(e))
+        check("Login Admin (seeded account)", False, str(e))
 
     headers_admin = {"Authorization": f"Bearer {admin_token}"}
+
+    # A citizen must be rejected by an admin-only route
+    try:
+        r = requests.get(f"{BASE_URL}/users/", headers=headers_citizen)
+        check("RBAC: citizen blocked from /users", r.status_code == 403, f"(status={r.status_code})")
+    except Exception as e:
+        check("RBAC: citizen blocked from /users", False, str(e))
 
     # Auth Me
     try:

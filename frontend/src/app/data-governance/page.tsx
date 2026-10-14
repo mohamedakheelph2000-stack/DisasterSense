@@ -1,81 +1,105 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-context";
 import { MLGovernanceApi, FeedbackResponse, DatasetCandidateSummary } from "@/lib/api/ml-governance";
+import { getMLStatus } from "@/lib/api/ml";
+import { MLStatusResponse } from "@/lib/api/types/ml";
 import FeedbackTable from "@/components/ml/data-governance/feedback-table";
 import DatasetCandidateExport from "@/components/ml/data-governance/dataset-candidate-export";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { ErrorState, ForbiddenState, LoadingGrid } from "@/components/ui/states";
+import { errorMessage } from "@/lib/api/client";
 import { Database, Inbox, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 
 export default function DataGovernancePage() {
-  const router = useRouter();
   const { user } = useAuth();
 
   const [feedbacks, setFeedbacks] = useState<FeedbackResponse[]>([]);
   const [candidates, setCandidates] = useState<DatasetCandidateSummary[]>([]);
+  const [mlStatus, setMlStatus] = useState<MLStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  useEffect(() => {
-    if (user && user.role !== "admin") {
-      router.push("/");
-    }
-  }, [user, router]);
-
-  const fetchData = async () => {
+  const fetchData = async (opts: { showLoading?: boolean } = {}) => {
+    if (opts.showLoading !== false) setLoading(true);
+    setError(null);
     try {
-      const fbData = await MLGovernanceApi.listFeedback();
+      const [fbData, candData] = await Promise.all([
+        MLGovernanceApi.listFeedback(),
+        MLGovernanceApi.getCandidates(),
+      ]);
       setFeedbacks(fbData);
-
-      const candData = await MLGovernanceApi.getCandidates();
       setCandidates(candData);
-    } catch (err: any) {
-      setError(err.message || "Failed to load governance data");
+
+      try {
+        setMlStatus(await getMLStatus());
+      } catch {
+        setMlStatus(null);
+      }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      if (opts.showLoading !== false) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (!user || user.role !== "admin") return;
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleGenerate = async (hazardType: string) => {
     if (!confirm(`Are you sure you want to generate a new explicit candidate dataset for ${hazardType}?`)) return;
-    
+
     setIsGenerating(true);
     setError(null);
     try {
       await MLGovernanceApi.generateCandidate(hazardType);
-      await fetchData();
-    } catch (err: any) {
-      setError(err.message || `Failed to generate candidate for ${hazardType}`);
+      await fetchData({ showLoading: false });
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setIsGenerating(false);
     }
   };
 
-  if (!user || user.role !== "admin") return null;
+  if (!user || user.role !== "admin") {
+    return (
+      <AppShell>
+        <ForbiddenState message="ML data governance is restricted to administrator accounts." />
+      </AppShell>
+    );
+  }
 
-  const pendingCount = feedbacks.filter(f => f.review_status === "submitted" || f.review_status === "under_review").length;
-  const approvedCount = feedbacks.filter(f => f.review_status === "approved_ground_truth").length;
-  const rejectedCount = feedbacks.filter(f => f.review_status === "rejected").length;
+  const pendingCount = feedbacks.filter((f) => f.review_status === "submitted" || f.review_status === "under_review").length;
+  const approvedCount = feedbacks.filter((f) => f.review_status === "approved_ground_truth").length;
+  const rejectedCount = feedbacks.filter((f) => f.review_status === "rejected").length;
 
   return (
-    <div className="container mx-auto p-4 space-y-8 mt-16 text-foreground">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-primary mb-2">ML Data Governance</h1>
-        <p className="text-muted-foreground">Admin-only console for validating feedback and managing training datasets.</p>
-      </div>
+    <AppShell>
+      <PageHeader
+        eyebrow="Governance"
+        title="ML Data Governance"
+        description="Administrator console for validating field feedback as ground truth and curating offline training-dataset candidates."
+        actions={
+          <Button size="sm" variant="outline" onClick={() => fetchData()} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        }
+      />
 
-      {error && (
-        <Card className="bg-destructive/10 border-destructive">
-          <CardContent className="p-4 text-destructive font-semibold">{error}</CardContent>
-        </Card>
-      )}
+      {error ? <ErrorState error={new Error(error)} onRetry={() => fetchData()} /> : null}
 
+      {loading && !error ? <LoadingGrid rows={2} /> : null}
+
+      <div className="space-y-8">
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -83,7 +107,9 @@ export default function DataGovernancePage() {
             <Database className="w-8 h-8 text-primary" />
             <div>
               <p className="text-sm text-muted-foreground">DEPLOYED MODEL</p>
-              <p className="text-lg font-bold text-success uppercase">UNCHANGED (real-v1)</p>
+              <p className="text-lg font-bold text-success uppercase">
+                {mlStatus?.flood.model_version || mlStatus?.landslide.model_version || "unknown"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -120,7 +146,7 @@ export default function DataGovernancePage() {
         <p className="text-sm font-bold text-primary uppercase">🛡️ Deployed Model Immutability Enforced</p>
         <p className="text-sm text-foreground mt-1">
           Reviewing and approving feedback does <strong>NOT</strong> automatically retrain or deploy models. 
-          Ground truth is curated here to generate <strong>offline dataset candidates</strong>. Your production `real-v1` deployment is completely unaffected by this workflow.
+          Ground truth is curated here to generate <strong>offline dataset candidates</strong>.           Your production <code>real-v1</code> deployment is completely unaffected by this workflow.
         </p>
         <p className="text-sm font-semibold text-danger mt-2">Candidate data does not affect deployed predictions.</p>
       </div>
@@ -161,7 +187,7 @@ export default function DataGovernancePage() {
         <h2 className="text-2xl font-semibold border-b pb-2">Data Lineage & Review Queue</h2>
         <FeedbackTable feedbacks={feedbacks} onRefresh={fetchData} currentUserId={user.id} />
       </section>
-
-    </div>
+      </div>
+    </AppShell>
   );
 }

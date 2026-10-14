@@ -1,10 +1,5 @@
 import { apiClient } from "./client";
-import { 
-  FeedbackCreate, 
-  FeedbackReviewRequest, 
-  CandidateExportRecord,
-  DatasetCandidateSummary
-} from "./types/ml-governance";
+import { DatasetCandidateSummary } from "./types/ml-governance";
 export type { DatasetCandidateSummary };
 
 export interface FeedbackResponse {

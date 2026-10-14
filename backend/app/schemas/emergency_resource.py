@@ -17,6 +17,7 @@ class EmergencyResourceBase(BaseModel):
     verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
     capacity: Optional[int] = None
     contact_info: Optional[str] = None
+    phone_number: Optional[str] = None
 
 class EmergencyResourceCreate(EmergencyResourceBase):
     pass
@@ -38,3 +39,34 @@ class PaginatedResourceResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class NearbyGroup(BaseModel):
+    """One category of emergency service (hospitals, ambulance, police, fire…)."""
+
+    key: str
+    label: str
+    count: int
+    items: list[EmergencyResourceResponse] = []
+
+
+class EmergencyNumber(BaseModel):
+    name: str
+    number: str
+    scope: str = "National"
+    description: str = ""
+
+
+class NearbyResponse(BaseModel):
+    """Nearby emergency services grouped by type, with call-ready phone numbers."""
+
+    model_config = ConfigDict(extra="allow")
+
+    latitude: float
+    longitude: float
+    radius_km: float
+    generated_at: str
+    groups: list[NearbyGroup] = []
+    totals: dict[str, int] = {}
+    emergency_numbers: list[EmergencyNumber] = []
+    source_note: str = ""

@@ -37,6 +37,10 @@ class UserCreate(UserBase):
 
     plain_password is validated here; the service layer will hash it
     before storing in hashed_password.
+
+    NOTE: this schema is for trusted/admin-internal creation only.
+    The public self-registration endpoint uses :class:`UserRegister`,
+    which does not expose ``role`` or ``is_active``.
     """
 
     plain_password: str = Field(..., min_length=8, max_length=128)
@@ -48,6 +52,43 @@ class UserCreate(UserBase):
         if v.lower() in {"password", "12345678", "disastersense"}:
             raise ValueError("Password is too common. Choose a stronger password.")
         return v
+
+
+class UserRegister(BaseModel):
+    """
+    Schema accepted by the public ``POST /auth/register`` endpoint.
+
+    Deliberately omits ``role`` and ``is_active`` so a caller cannot
+    self-assign privileges. New accounts are always active citizens.
+    """
+
+    email: EmailStr
+    full_name: str = Field(..., min_length=2, max_length=200)
+    plain_password: str = Field(..., min_length=8, max_length=128)
+
+    phone_number: str | None = Field(None, max_length=20)
+    email_enabled: bool = True
+    sms_enabled: bool = False
+
+    @field_validator("plain_password")
+    @classmethod
+    def password_must_not_be_trivial(cls, v: str) -> str:
+        """Reject trivially weak passwords during creation."""
+        if v.lower() in {"password", "12345678", "disastersense"}:
+            raise ValueError("Password is too common. Choose a stronger password.")
+        return v
+
+    @field_validator("phone_number")
+    @classmethod
+    def sanitize_phone(cls, v: str | None) -> str | None:
+        """Normalize an optional phone number to strict E.164."""
+        if not v:
+            return None
+        import re
+        cleaned = re.sub(r"\s+", "", v)
+        if not re.match(r"^\+[1-9]\d{1,14}$", cleaned):
+            raise ValueError("Phone number must follow E.164 format (e.g., +1234567890)")
+        return cleaned
 
 
 class UserRead(UserBase):

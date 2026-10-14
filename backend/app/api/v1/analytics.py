@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, Any
+from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, or_

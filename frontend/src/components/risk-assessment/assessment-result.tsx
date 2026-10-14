@@ -1,15 +1,29 @@
+import { useState } from "react";
 import { RiskAssessmentResponse, FeatureImpactResponse } from "@/lib/api/types/risk";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { RiskGauge } from "../risk/risk-gauge";
 import { Badge } from "../ui/badge";
-import { ShieldAlert, Database, HelpCircle, Activity } from "lucide-react";
+import { Database, HelpCircle, Activity, Send, Loader2 } from "lucide-react";
 
 interface AssessmentResultProps {
   result: RiskAssessmentResponse;
 }
 
+const FEEDBACK_TYPES: { value: string; label: string }[] = [
+  { value: "uncertain", label: "Outcome uncertain" },
+  { value: "confirmed_event", label: "Event confirmed" },
+  { value: "false_positive", label: "False positive" },
+  { value: "false_negative", label: "Missed event" },
+  { value: "data_correction", label: "Data correction" },
+];
+
 export function AssessmentResult({ result }: AssessmentResultProps) {
-  
+  const [outcome, setOutcome] = useState("");
+  const [feedbackType, setFeedbackType] = useState("uncertain");
+  const [submitting, setSubmitting] = useState(false);
+  const [feedbackState, setFeedbackState] = useState<"idle" | "sent" | "error">("idle");
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
   const getSeverityVariant = (severity: string) => {
     switch (severity.toLowerCase()) {
       case "critical": return "critical";
@@ -20,6 +34,36 @@ export function AssessmentResult({ result }: AssessmentResultProps) {
   };
 
   const severityVariant = getSeverityVariant(result.severity);
+
+  const submitFeedback = async () => {
+    if (!outcome.trim()) {
+      setFeedbackState("error");
+      setFeedbackMessage("Describe what actually happened before submitting.");
+      return;
+    }
+    setSubmitting(true);
+    setFeedbackState("idle");
+    setFeedbackMessage(null);
+    try {
+      const { MLGovernanceApi } = await import("@/lib/api/ml-governance");
+      await MLGovernanceApi.submitFeedback({
+        event_id: result.event_id ?? undefined,
+        hazard_type: result.hazard_type,
+        feedback_type: feedbackType,
+        observed_outcome: outcome.trim(),
+        feature_snapshot: result.features_used,
+        provenance: "Assessment Result UI Submission",
+      });
+      setFeedbackState("sent");
+      setOutcome("");
+      setFeedbackMessage("Feedback queued for reviewer validation. It does not change the deployed model.");
+    } catch (err) {
+      setFeedbackState("error");
+      setFeedbackMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -101,33 +145,60 @@ export function AssessmentResult({ result }: AssessmentResultProps) {
             {result.dataset_version && (
               <p className="mb-1"><strong className="text-foreground/80">Dataset:</strong> {result.dataset_version}</p>
             )}
-            <p className="mb-2"><strong className="text-foreground/80">Inference Source:</strong> <span className="capitalize">{result.inference_source?.replace('_', ' ')}</span></p>
-            <p className="mb-3">Production AI model validated at ≥98.0% accuracy on hydrological & geotechnical test sets. Real-time inference powered by Open-Meteo & Open-Elevation telemetry.</p>
-            
+            <p className="mb-1"><strong className="text-foreground/80">Inference source:</strong> <span className="capitalize">{result.inference_source?.replace('_', ' ')}</span></p>
+            <p className="mb-1"><strong className="text-foreground/80">Mode:</strong> <span className="capitalize">{result.mode || result.hazard_type}</span> · assessed {new Date(result.assessed_at).toLocaleString()}</p>
+            <p className="mb-3">
+              Feature contributions below are computed for this single prediction. They explain how the
+              model reached this score — they are not a forecast guarantee. Live inputs come from
+              Open-Meteo and Open-Elevation telemetry.
+            </p>
+
             <div className="pt-3 border-t border-border/50">
               <p className="mb-2 text-foreground/80 font-medium">Operational Feedback</p>
-              <div className="flex space-x-2">
-                <button 
-                  onClick={() => {
-                    const outcome = prompt("Provide outcome details (e.g., 'Flooding occurred', 'False alarm'):");
-                    if (outcome) {
-                      import("@/lib/api/ml-governance").then((m) => {
-                        m.MLGovernanceApi.submitFeedback({
-                          event_id: result.event_id,
-                          hazard_type: result.hazard_type,
-                          feedback_type: "uncertain", // Requires review to become confirmed
-                          observed_outcome: outcome,
-                          feature_snapshot: result.features_used,
-                          provenance: "Assessment Result UI Submission",
-                        }).then(() => alert("Feedback submitted for review."))
-                        .catch(err => alert("Error: " + err.message));
-                      });
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-md transition-colors"
-                >
-                  Submit Observation
-                </button>
+              <div className="space-y-2">
+                <label className="block" htmlFor="assessment-feedback-type">
+                  <span className="text-[11px] uppercase text-foreground/50">Classification</span>
+                  <select
+                    id="assessment-feedback-type"
+                    value={feedbackType}
+                    onChange={(e) => setFeedbackType(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    {FEEDBACK_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block" htmlFor="assessment-feedback-outcome">
+                  <span className="text-[11px] uppercase text-foreground/50">Observed outcome</span>
+                  <textarea
+                    id="assessment-feedback-outcome"
+                    rows={3}
+                    value={outcome}
+                    onChange={(e) => setOutcome(e.target.value)}
+                    placeholder="e.g., Flooding observed on the Kallani bridge approach, 14:20 IST."
+                    className="mt-1 w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={submitFeedback}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary/20 px-3 py-1.5 text-primary transition-colors hover:bg-primary/30 disabled:opacity-60"
+                  >
+                    {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Submit Observation
+                  </button>
+                </div>
+                {feedbackMessage && (
+                  <p
+                    role={feedbackState === "error" ? "alert" : "status"}
+                    className={`text-xs ${feedbackState === "error" ? "text-danger" : "text-success"}`}
+                  >
+                    {feedbackMessage}
+                  </p>
+                )}
               </div>
             </div>
           </div>

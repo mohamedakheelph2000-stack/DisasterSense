@@ -1,6 +1,13 @@
 import { apiClient } from './client';
 
-export type ResourceType = 'shelter' | 'hospital' | 'fire_station' | 'police_station' | 'relief_center' | 'other_emergency_resource';
+export type ResourceType =
+  | 'shelter'
+  | 'hospital'
+  | 'ambulance'
+  | 'fire_station'
+  | 'police_station'
+  | 'relief_center'
+  | 'other_emergency_resource';
 export type VerificationStatus = 'verified' | 'unverified';
 export type RecordType = 'historical' | 'predictive' | 'demo';
 
@@ -19,6 +26,7 @@ export interface EmergencyResource {
   last_verified_at?: string;
   capacity?: number;
   contact_info?: string;
+  phone_number?: string | null;
   created_at: string;
   updated_at: string;
   distance_km?: number;

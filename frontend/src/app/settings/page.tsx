@@ -2,17 +2,32 @@
 
 import { useState, useEffect } from "react";
 import { User, Settings as SettingsIcon, Phone, Mail, MessageSquare, LogOut, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, errorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { ErrorState, LoadingPanel } from "@/components/ui/states";
+import { Reveal } from "@/components/animations/motion";
+
+interface Preferences {
+  phone_number: string;
+  email_enabled: boolean;
+  sms_enabled: boolean;
+}
+
+const E164 = /^\+[1-9]\d{1,14}$/;
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  const [preferences, setPreferences] = useState({
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [preferences, setPreferences] = useState<Preferences>({
     phone_number: "",
     email_enabled: true,
     sms_enabled: false,
@@ -20,200 +35,221 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchPreferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPreferences = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const data = await apiClient<any>("/users/me/preferences");
-      if (data) {
-        setPreferences({
-          phone_number: data.phone_number || "",
-          email_enabled: data.email_enabled ?? true,
-          sms_enabled: data.sms_enabled ?? false,
-        });
-      }
-    } catch (error) {
-      console.warn("Could not fetch preferences", error);
+      const data = await apiClient<Partial<Preferences>>("/users/me/preferences");
+      setPreferences({
+        phone_number: data?.phone_number || "",
+        email_enabled: data?.email_enabled ?? true,
+        sms_enabled: data?.sms_enabled ?? false,
+      });
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   const savePreferences = async () => {
-    // Validation
+    setFormError(null);
+    setSaveSuccess(false);
+
     if (preferences.sms_enabled) {
-      if (!preferences.phone_number) {
-        alert("Please enter a phone number to enable SMS alerts.");
+      const phone = preferences.phone_number.trim();
+      if (!phone) {
+        setFormError("Enter a phone number before enabling SMS alerts.");
         return;
       }
-      if (!/^\+[1-9]\d{1,14}$/.test(preferences.phone_number.replace(/\s+/g, ""))) {
-        alert("Phone number must follow E.164 format (e.g., +1234567890).");
+      if (!E164.test(phone.replace(/\s+/g, ""))) {
+        setFormError("Phone number must follow E.164 format (e.g., +1234567890).");
         return;
       }
     }
 
     setSaving(true);
-    setSaveSuccess(false);
     try {
       await apiClient("/users/me/preferences", {
         method: "PUT",
-        body: JSON.stringify(preferences)
+        body: JSON.stringify(preferences),
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      console.error("Failed to save preferences", error);
-      alert("Failed to save preferences. Please check your inputs.");
+    } catch (err) {
+      setFormError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-end">
+  const Toggle = ({
+    checked,
+    onChange,
+    label,
+    description,
+    icon,
+    tone,
+  }: {
+    checked: boolean;
+    onChange: (v: boolean) => void;
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+    tone: string;
+  }) => (
+    <div className="flex items-center justify-between p-4 bg-surface-muted/30 rounded-lg border border-border/50">
+      <div className="flex items-center gap-4">
+        <div className={`p-2.5 rounded-lg ${tone}`}>{icon}</div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
-          <p className="text-foreground/60">Manage your account and notification preferences.</p>
+          <div className="font-medium text-foreground">{label}</div>
+          <div className="text-sm text-muted-foreground">{description}</div>
         </div>
       </div>
+      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+        <input
+          type="checkbox"
+          className="sr-only peer"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <div className="w-11 h-6 bg-surface-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+      </label>
+    </div>
+  );
+
+  return (
+    <AppShell>
+      <PageHeader
+        eyebrow="Account"
+        title="Settings"
+        description="Manage your profile and the channels used to deliver disaster notifications."
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        {/* Profile Section */}
-        <div className="md:col-span-1 space-y-6">
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+        <Reveal className="md:col-span-1 space-y-6">
+          <div className="panel p-6">
             <h2 className="text-lg font-semibold flex items-center mb-6">
               <User className="w-5 h-5 mr-2 text-primary" />
               Profile
             </h2>
-            
+
             {user ? (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-foreground/50 uppercase tracking-wider font-semibold">Full Name</label>
+                  <label className="hud-label">Full Name</label>
                   <div className="mt-1 font-medium">{user.full_name}</div>
                 </div>
                 <div>
-                  <label className="text-xs text-foreground/50 uppercase tracking-wider font-semibold">Email</label>
-                  <div className="mt-1 font-medium">{user.email}</div>
+                  <label className="hud-label">Email</label>
+                  <div className="mt-1 font-medium break-all">{user.email}</div>
                 </div>
                 <div>
-                  <label className="text-xs text-foreground/50 uppercase tracking-wider font-semibold">Role</label>
+                  <label className="hud-label">Role</label>
                   <div className="mt-1">
                     <Badge variant="outline" className="uppercase">{user.role}</Badge>
                   </div>
                 </div>
+                {preferences.phone_number ? (
+                  <div>
+                    <label className="hud-label">Phone</label>
+                    <div className="mt-1 font-medium tabular-nums">{preferences.phone_number}</div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="flex justify-center p-4">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             )}
-            
+
             <div className="mt-8 pt-6 border-t border-border">
-              <button 
+              <Button
+                variant="outline"
                 onClick={logout}
-                className="w-full flex items-center justify-center px-4 py-2 border border-critical text-critical rounded-lg hover:bg-critical/10 transition-colors font-medium"
+                className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </Reveal>
 
-        {/* Preferences Section */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+        <Reveal delay={0.08} className="md:col-span-2 space-y-6">
+          <div className="panel p-6">
             <h2 className="text-lg font-semibold flex items-center mb-6">
               <SettingsIcon className="w-5 h-5 mr-2 text-primary" />
               Notification Preferences
             </h2>
 
             {loading ? (
-              <div className="animate-pulse space-y-6">
-                <div className="h-12 bg-surface-muted rounded-lg w-full"></div>
-                <div className="h-12 bg-surface-muted rounded-lg w-full"></div>
-                <div className="h-20 bg-surface-muted rounded-lg w-full"></div>
-              </div>
+              <LoadingPanel label="Loading preferences…" />
+            ) : error ? (
+              <ErrorState error={new Error(error)} onRetry={fetchPreferences} />
             ) : (
               <div className="space-y-6">
-                
-                {/* Email Toggle */}
-                <div className="flex items-center justify-between p-4 bg-surface-muted/30 rounded-lg border border-border/50">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-info/10 rounded-lg text-info">
-                      <Mail className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-foreground">Email Alerts</div>
-                      <div className="text-sm text-foreground/60">Receive HIGH/CRITICAL alerts via email</div>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" className="sr-only peer" checked={preferences.email_enabled} onChange={(e) => setPreferences({ ...preferences, email_enabled: e.target.checked })} />
-                    <div className="w-11 h-6 bg-surface-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                  </label>
-                </div>
+                <Toggle
+                  checked={preferences.email_enabled}
+                  onChange={(v) => setPreferences((p) => ({ ...p, email_enabled: v }))}
+                  label="Email Alerts"
+                  description="Receive HIGH and CRITICAL alerts via email"
+                  icon={<Mail className="w-5 h-5" />}
+                  tone="bg-info/10 text-info"
+                />
 
-                {/* SMS Toggle */}
-                <div className="flex items-center justify-between p-4 bg-surface-muted/30 rounded-lg border border-border/50">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-warning/10 rounded-lg text-warning">
-                      <MessageSquare className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-foreground">SMS Alerts</div>
-                      <div className="text-sm text-foreground/60">Receive CRITICAL alerts via SMS</div>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" className="sr-only peer" checked={preferences.sms_enabled} onChange={(e) => setPreferences({ ...preferences, sms_enabled: e.target.checked })} />
-                    <div className="w-11 h-6 bg-surface-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                  </label>
-                </div>
+                <Toggle
+                  checked={preferences.sms_enabled}
+                  onChange={(v) => setPreferences((p) => ({ ...p, sms_enabled: v }))}
+                  label="SMS Alerts"
+                  description="Receive CRITICAL alerts via SMS"
+                  icon={<MessageSquare className="w-5 h-5" />}
+                  tone="bg-warning/10 text-warning"
+                />
 
-                {/* Phone Number Input */}
                 {preferences.sms_enabled && (
-                  <div className="p-4 bg-surface-muted/20 rounded-lg border border-border/50 animate-in fade-in zoom-in-95 duration-200">
-                    <label className="block text-sm font-medium text-foreground/80 mb-2">Phone Number</label>
+                  <Reveal className="p-4 bg-surface-muted/20 rounded-lg border border-border/50">
+                    <label className="block text-sm font-medium text-foreground/80 mb-2" htmlFor="settings-phone">
+                      Phone Number
+                    </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-foreground/50">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
                         <Phone className="w-4 h-4" />
                       </div>
                       <input
-                        type="text"
-                        className="bg-background border border-border text-foreground text-sm rounded-lg focus:ring-primary focus:border-primary block w-full pl-10 p-3 outline-none transition-shadow hover:border-foreground/30 focus:shadow-[0_0_0_2px_rgba(var(--color-primary),0.2)]"
+                        id="settings-phone"
+                        type="tel"
+                        className="bg-background border border-input text-foreground text-sm rounded-lg block w-full pl-10 p-3 outline-none transition-shadow hover:border-foreground/30 focus:ring-2 focus:ring-ring focus:border-primary"
                         placeholder="+1234567890"
                         value={preferences.phone_number}
-                        onChange={(e) => setPreferences({ ...preferences, phone_number: e.target.value })}
+                        onChange={(e) => setPreferences((p) => ({ ...p, phone_number: e.target.value }))}
                       />
                     </div>
-                    <p className="mt-2 text-xs text-foreground/50">Must include country code (e.g., +1). Standard messaging rates apply.</p>
-                  </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Must include country code (e.g., +1). Standard messaging rates apply.
+                    </p>
+                  </Reveal>
                 )}
-                
-                <div className="pt-4 flex items-center justify-end gap-4 border-t border-border mt-4">
+
+                {formError ? <ErrorState error={new Error(formError)} compact /> : null}
+
+                <div className="pt-4 flex flex-wrap items-center justify-end gap-4 border-t border-border mt-4">
                   {saveSuccess && (
-                    <span className="text-sm text-success font-medium animate-in fade-in">Preferences saved successfully!</span>
+                    <span className="text-sm text-success font-medium">Preferences saved successfully.</span>
                   )}
-                  <button 
-                    onClick={savePreferences} 
-                    disabled={loading || saving} 
-                    className="px-6 py-2.5 text-sm font-medium rounded-lg bg-primary hover:bg-primary/90 transition shadow-lg shadow-primary/20 text-primary-foreground flex items-center disabled:opacity-70"
-                  >
+                  <Button onClick={savePreferences} disabled={loading || saving}>
                     {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {saving ? "Saving..." : "Save Preferences"}
-                  </button>
+                    {saving ? "Saving…" : "Save Preferences"}
+                  </Button>
                 </div>
               </div>
             )}
           </div>
-        </div>
-
+        </Reveal>
       </div>
-    </div>
+    </AppShell>
   );
 }

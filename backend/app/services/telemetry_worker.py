@@ -14,8 +14,9 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _project_root not in sys.path:
@@ -52,6 +53,9 @@ class TelemetryWorker:
         self.last_status: str = "INITIALIZED"
         self.last_error: Optional[str] = None
         self.latest_telemetry: Dict[int, Dict[str, Any]] = {}
+        # (location_id, hazard_type) -> monotonic timestamp of last event row,
+        # plus the severity band it was written at. Throttles the 60s cycle.
+        self._last_event_write: Dict[Tuple[int, str], Tuple[float, str]] = {}
 
     def start(self) -> None:
         """Starts the 24/7 background polling loop."""
@@ -105,6 +109,7 @@ class TelemetryWorker:
             "locations_polled": 0,
             "assessments_created": 0,
             "alerts_dispatched": 0,
+            "alerts_suppressed": 0,
             "results": []
         }
 
@@ -141,6 +146,7 @@ class TelemetryWorker:
                     rainfall_mm_24h=reading["rainfall_24h"],
                     rainfall_intensity_mm_h=reading["rainfall_intensity"],
                     rainfall_duration_h=12.0,
+                    antecedent_rainfall_7d_mm=reading["antecedent_7d"],
                     temperature_c=reading["temperature"],
                     humidity_pct=reading["humidity"],
                     elevation_m=reading["elevation"],
@@ -156,6 +162,9 @@ class TelemetryWorker:
                 landslide_input = LandslideInputSchema(
                     rainfall_mm_24h=reading["rainfall_24h"],
                     rainfall_intensity_mm_h=reading["rainfall_intensity"],
+                    antecedent_rainfall_7d_mm=reading["antecedent_7d"],
+                    temperature_c=reading["temperature"],
+                    humidity_pct=reading["humidity"],
                     slope_deg=max(5.0, float(loc.elevation_m or 100.0) / 35.0),
                     elevation_m=reading["elevation"],
                     soil_type_code=2.0,
@@ -167,43 +176,65 @@ class TelemetryWorker:
                 )
                 landslide_res = risk_engine.predict_landslide(landslide_input, mode="automatic")
 
-                # 4. Record Real Predictive Events in DB for both hazards
+                # 4. Record Real Predictive Events in DB for both hazards.
+                # Throttle identical rows: one row per band flip, otherwise at
+                # most one per 5 minutes per (location, hazard).
                 for hazard_type, res in [("flood", flood_res), ("landslide", landslide_res)]:
-                    event = DisasterEvent(
-                        location_id=loc.id,
-                        hazard_type=HazardType(hazard_type),
-                        severity=SeverityLevel(res.severity.lower()),
-                        risk_score=res.risk_score / 100.0,
-                        model_version=res.model_version or "v1.0.0",
-                        record_type=RecordType.PREDICTIVE,
-                        data_source="open-meteo-api",
-                        source_reference="https://open-meteo.com",
-                        event_time=datetime.now(timezone.utc),
-                        notes=f"24/7 automated telemetry assessment for {loc.name}. Rainfall 24h: {reading['rainfall_24h']}mm",
-                        feature_snapshot=res.model_dump_json()
-                    )
-                    db.add(event)
-                    db.flush()
+                    sev_key = res.severity.lower()
+                    elevated = sev_key in ("high", "critical")
+                    write_key = (loc.id, hazard_type)
+                    now_mono = time.monotonic()
+                    prev_write = self._last_event_write.get(write_key)
+                    band_changed = prev_write is None or prev_write[1] != sev_key
+                    stale = prev_write is None or (now_mono - prev_write[0]) >= 300.0
 
-                    summary["assessments_created"] += 1
-                    self.total_assessments_generated += 1
+                    existing_alert = None
+                    if elevated:
+                        existing_alert = alert_service.find_open_alert(
+                            db, loc.id, HazardType(hazard_type)
+                        )
+
+                    if band_changed or stale or (elevated and existing_alert is None):
+                        event = DisasterEvent(
+                            location_id=loc.id,
+                            hazard_type=HazardType(hazard_type),
+                            severity=SeverityLevel(sev_key),
+                            risk_score=res.risk_score / 100.0,
+                            model_version=res.model_version or "v1.0.0",
+                            record_type=RecordType.PREDICTIVE,
+                            data_source="open-meteo-api",
+                            source_reference="https://open-meteo.com",
+                            event_time=datetime.now(timezone.utc),
+                            notes=f"24/7 automated telemetry assessment for {loc.name}. Rainfall 24h: {reading['rainfall_24h']}mm",
+                            feature_snapshot=res.model_dump_json()
+                        )
+                        db.add(event)
+                        db.flush()
+                        self._last_event_write[write_key] = (now_mono, sev_key)
+
+                        summary["assessments_created"] += 1
+                        self.total_assessments_generated += 1
+                    else:
+                        event = None
 
                     # 5. Dispatch Alert if Elevated Risk
-                    if res.severity.lower() in ("high", "critical"):
+                    if elevated and existing_alert is None:
                         alert_create = AlertCreate(
                             location_id=loc.id,
-                            disaster_event_id=event.id,
+                            disaster_event_id=event.id if event else None,
                             title=f"AUTOMATED {res.severity.upper()} {hazard_type.upper()} RISK: {loc.name}",
                             message=(
                                 f"24/7 telemetry detected elevated {hazard_type} hazard at {loc.name} "
                                 f"(Score: {res.risk_score:.1f}/100, Rainfall 24h: {reading['rainfall_24h']}mm). "
                                 f"Triggered automatically via Open-Meteo real-time telemetry."
                             ),
-                            severity=SeverityLevel(res.severity.lower())
+                            severity=SeverityLevel(sev_key)
                         )
                         alert = alert_service.create_alert(db, alert_create)
-                        dispatch_alert_notifications(db, alert)
+                        dispatch_alert_notifications(alert.id)
                         summary["alerts_dispatched"] += 1
+                    elif elevated and existing_alert is not None:
+                        summary["alerts_suppressed"] += 1
 
                 summary["locations_polled"] += 1
 

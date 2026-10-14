@@ -44,18 +44,21 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 from app.services.telemetry_worker import telemetry_worker
 from app.services.kerala_live_ingestion import kerala_ingestion_service
+from app.services.ingestion import ingestion_worker
 
 @app.on_event("startup")
 async def on_startup():
-    """Start 24/7 background telemetry ingestion worker and Kerala live news/weather worker."""
+    """Start 24/7 background telemetry, Kerala live sync and multi-source ingestion workers."""
     telemetry_worker.start()
     kerala_ingestion_service.start()
+    ingestion_worker.start()
 
 @app.on_event("shutdown")
 async def on_shutdown():
     """Gracefully terminate background tasks."""
     telemetry_worker.stop()
     kerala_ingestion_service.stop()
+    ingestion_worker.stop()
 
 
 # ── Exception Handlers ────────────────────────────────────────────────────────

@@ -1,142 +1,248 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Bell, Menu, User, Cpu, Settings, LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Bell,
+  Menu,
+  User,
+  Cpu,
+  Settings,
+  LogOut,
+  ChevronDown,
+  WifiOff,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useConfig } from "@/lib/api/config";
 import { useAuth } from "@/lib/auth/auth-context";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useApi } from "@/hooks/use-api";
+import { apiClient } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 
-export function TopBar() {
+
+export function TopBar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const { isDemoMode } = useConfig();
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [currentDateTime, setCurrentDateTime] = useState<Date | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
-  // Real-time ticking clock (1-second precision)
   useEffect(() => {
-    setCurrentDateTime(new Date());
-    const interval = setInterval(() => {
-      setCurrentDateTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    if (!dropdownOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDropdownOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [dropdownOpen]);
 
-  const handleLogout = () => {
-    setDropdownOpen(false);
-    logout();
-  };
+  const { data: health, error: healthError } = useApi(
+    () => apiClient<{ status: string; timestamp?: string }>("/health"),
+    [],
+    { refreshMs: 30_000, keepPreviousData: true }
+  );
 
-  const formattedDate = currentDateTime
-    ? currentDateTime.toLocaleDateString("en-US", {
+  const { data: alertFeed } = useApi(
+    () =>
+      apiClient<{ total: number }>("/alerts?status=active&page_size=1"),
+    [user?.id],
+    { refreshMs: 30_000, enabled: !!user }
+  );
+
+  const openAlerts = alertFeed?.total ?? 0;
+  const apiOnline = !!health && !healthError;
+
+  const dateLabel = now
+    ? now.toLocaleDateString("en-GB", {
         weekday: "short",
+        day: "2-digit",
         month: "short",
-        day: "numeric",
         year: "numeric",
       })
     : "";
-
-  const formattedTime = currentDateTime
-    ? currentDateTime.toLocaleTimeString("en-US", {
+  const timeLabel = now
+    ? now.toLocaleTimeString("en-GB", {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
-        hour12: true,
+        hour12: false,
       })
     : "";
 
+  const initials = (user?.full_name || user?.email || "OP")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+
   return (
-    <header className="h-16 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50">
-      <div className="flex items-center space-x-4">
-        <button className="md:hidden mr-2 text-foreground/70 hover:text-foreground">
-          <Menu className="h-6 w-6" />
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface/70 px-4 backdrop-blur-xl md:px-6">
+      {/* Left cluster */}
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onMenuToggle}
+          aria-label="Open navigation"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary md:hidden"
+        >
+          <Menu className="h-5 w-5" />
         </button>
-        <div className="flex items-center space-x-2">
-          <Cpu className="h-4 w-4 text-success" />
-          <span className="text-sm font-medium text-foreground/70 hidden sm:inline">SYSTEM_OPERATIONAL</span>
+
+        <div
+          className={cn(
+            "hidden items-center gap-2 rounded-full border px-3 py-1.5 sm:flex",
+            apiOnline
+              ? "border-success/30 bg-success/10"
+              : "border-warning/30 bg-warning/10"
+          )}
+          title={apiOnline ? "Backend health check passing" : "Backend unreachable"}
+        >
+          {apiOnline ? (
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+            </span>
+          ) : (
+            <WifiOff className="h-3 w-3 text-warning" />
+          )}
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/75">
+            {apiOnline ? "API_LINK" : "API_DOWN"}
+          </span>
         </div>
 
-        {/* Live Date and Time Clock */}
-        {currentDateTime && (
-          <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-surface-muted/80 border border-border/80 text-xs">
-            <span className="text-foreground/70 font-medium">{formattedDate}</span>
-            <span className="text-border">|</span>
-            <span className="font-mono font-bold text-primary tracking-wider">{formattedTime}</span>
+        {isDemoMode && (
+          <span className="rounded-full border border-accent/40 bg-accent/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+            Demo fixtures
+          </span>
+        )}
+
+        {now && (
+          <div className="hidden items-center gap-2.5 rounded-lg border border-border/80 bg-surface-muted/70 px-3 py-1.5 lg:flex">
+            <Cpu className="h-3.5 w-3.5 text-primary/80" />
+            <span className="text-[11px] text-foreground/60">{dateLabel}</span>
+            <span className="h-3 w-px bg-border" />
+            <span className="font-mono text-xs font-semibold tabular-nums tracking-[0.1em] text-primary">
+              {timeLabel}
+            </span>
           </div>
         )}
       </div>
 
-      <div className="flex items-center space-x-4">
-        <div className="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      {/* Right cluster */}
+      <div className="flex items-center gap-2 md:gap-3">
+        <Link
+          href="/alerts"
+          className="group relative flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-foreground/70 transition-colors hover:border-danger/40 hover:text-foreground"
+        >
+          <Bell className="h-4 w-4 transition-transform group-hover:-rotate-12" />
+          <span className="hidden font-mono text-[11px] tabular-nums sm:inline">
+            {openAlerts}
           </span>
-          <span className="font-semibold">KERALA LIVE RADAR</span>
-          <span className="text-emerald-500/40">|</span>
-          <span className="text-[11px] text-emerald-300/80">10s Sync (KSDMA &amp; Weather)</span>
-        </div>
-        
-        <Link href="/alerts" className="relative p-2 text-foreground/70 hover:text-foreground hover:bg-surface-muted rounded-full transition-colors">
-          <Bell className="h-5 w-5" />
-          {/* We assume there might be notifications if it's rendered, but since we don't have a real socket, we just show the dot as a visual cue or hide it. Let's keep it for visual consistency. */}
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-critical"></span>
-        </Link>
-        
-        <div className="relative" ref={dropdownRef}>
-          <div 
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center border border-border cursor-pointer hover:border-primary transition-colors"
-          >
-            <User className="h-4 w-4 text-secondary-foreground" />
-          </div>
-
-          {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-surface border border-border rounded-lg shadow-xl py-1 z-50">
-              <div className="px-4 py-3 border-b border-border">
-                <p className="text-sm font-medium text-foreground truncate">{user?.full_name || "User"}</p>
-                <p className="text-xs text-foreground/60 truncate">{user?.email || ""}</p>
-                <div className="mt-1 flex">
-                  <Badge variant="outline" className="text-[10px] uppercase">{user?.role || "citizen"}</Badge>
-                </div>
-              </div>
-              
-              <Link 
-                href="/settings"
-                onClick={() => setDropdownOpen(false)}
-                className="flex items-center px-4 py-2 text-sm text-foreground/80 hover:bg-surface-muted hover:text-foreground transition-colors"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Link>
-              
-              <div className="border-t border-border mt-1 pt-1">
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center px-4 py-2 text-sm text-critical hover:bg-surface-muted transition-colors"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </button>
-              </div>
-            </div>
+          {openAlerts > 0 && (
+            <motion.span
+              key={openAlerts}
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[9px] font-bold leading-none text-white shadow-[0_0_10px_hsl(var(--critical)/0.7)]"
+            >
+              {openAlerts > 99 ? "99+" : openAlerts}
+            </motion.span>
           )}
+        </Link>
+
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setDropdownOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={dropdownOpen}
+            className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface-muted/60 pl-1.5 pr-2 transition-colors hover:border-primary/40"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 font-mono text-[10px] font-bold text-primary">
+              {initials || <User className="h-3.5 w-3.5" />}
+            </span>
+            <span className="hidden max-w-[9rem] truncate text-xs text-foreground/75 md:inline">
+              {user?.full_name || user?.email}
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 text-foreground/50 transition-transform duration-300",
+                dropdownOpen && "rotate-180"
+              )}
+            />
+          </button>
+
+          <AnimatePresence>
+            {dropdownOpen && (
+              <motion.div
+                role="menu"
+                initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="panel absolute right-0 mt-2 w-64 origin-top-right overflow-hidden p-0"
+              >
+                <div className="border-b border-border px-4 py-3">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {user?.full_name || "Operator"}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                      {user?.role || "citizen"}
+                    </Badge>
+                    <span className="flex items-center gap-1 font-mono text-[10px] text-success">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                      ACTIVE
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-1.5">
+                  <Link
+                    href="/settings"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-surface-muted hover:text-foreground"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Preferences
+                  </Link>
+                </div>
+
+                <div className="border-t border-border p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      logout();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-danger transition-colors hover:bg-danger/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </header>
   );
 }
+

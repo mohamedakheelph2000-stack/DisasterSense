@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
-import { Activity, Map, AlertTriangle, BarChart3, Database } from "lucide-react";
+import { Activity, Map, AlertTriangle, BarChart3 } from "lucide-react";
 
 export function QuickActions() {
   const actions = [

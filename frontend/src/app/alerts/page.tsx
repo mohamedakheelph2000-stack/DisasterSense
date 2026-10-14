@@ -1,89 +1,118 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { FadeIn } from "@/components/animations/fade-in";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { apiClient } from "@/lib/api/client";
-import { PaginatedAlerts, AlertRead } from "@/lib/api/types/alert";
-import { useConfig } from "@/lib/api/config";
+import { apiClient, errorMessage } from "@/lib/api/client";
+import { PaginatedAlerts, AlertRead, AlertStatus } from "@/lib/api/types/alert";
 import { parseSeverityFromTitle } from "@/lib/api/adapters";
 import { AlertCard } from "@/components/alerts/alert-card";
 import { AlertDetailPanel } from "@/components/alerts/alert-detail-panel";
-import { ShieldAlert, Loader2, Filter } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { ErrorState, EmptyState, LoadingPanel } from "@/components/ui/states";
+import { ShieldAlert, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Counter } from "@/components/animations/counter";
 
-/**
- * Derive severity from the alert — works in both demo and real modes.
- * In demo mode, __mock_meta is available.
- * In real mode, severity is parsed from the auto-generated title.
- */
-function getAlertSeverity(alert: AlertRead & { __mock_meta?: any }): string {
-  return alert.__mock_meta?.severity || parseSeverityFromTitle(alert.title);
+const PAGE_SIZE = 100;
+
+type StatusFilter = "all" | AlertStatus;
+type SeverityFilter = "all" | "critical" | "high" | "moderate" | "low";
+
+const STATUS_OPTIONS: StatusFilter[] = [
+  "all",
+  "active",
+  "acknowledged",
+  "response_in_progress",
+  "resolved",
+  "dismissed",
+];
+
+const SEVERITY_OPTIONS: SeverityFilter[] = ["all", "critical", "high", "moderate", "low"];
+
+const CARD_SEVERITY: Record<string, "info" | "warning" | "high" | "critical"> = {
+  critical: "critical",
+  high: "high",
+  moderate: "warning",
+  low: "info",
+  info: "info",
+};
+
+/** Severity of an alert — API value first, title parse as a fallback for legacy rows. */
+function getAlertSeverity(alert: AlertRead): string {
+  if (alert.severity) return alert.severity;
+  const parsed = parseSeverityFromTitle(alert.title);
+  return parsed === "info" ? "moderate" : parsed;
 }
 
 export default function AlertsPage() {
-  const { isDemoMode } = useConfig();
-  
-  const [alerts, setAlerts] = useState<(AlertRead & { __mock_meta?: any })[]>([]);
+  const [alerts, setAlerts] = useState<AlertRead[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [selectedAlert, setSelectedAlert] = useState<(AlertRead & { __mock_meta?: any }) | null>(null);
-  
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "acknowledged" | "resolved">("all");
-  const [severityFilter, setSeverityFilter] = useState<"all" | "critical" | "high">("all");
+  const [error, setError] = useState<string | null>(null);
+  const [selectedAlert, setSelectedAlert] = useState<AlertRead | null>(null);
 
-  const fetchAlerts = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient<PaginatedAlerts>("/alerts");
-      setAlerts(res.items as any);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+
+  const fetchAlerts = useCallback(
+    async (targetPage = page, status: StatusFilter = statusFilter) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ page: String(targetPage), page_size: String(PAGE_SIZE) });
+        if (status !== "all") params.set("status", status);
+        const res = await apiClient<PaginatedAlerts>(`/alerts?${params.toString()}`);
+        setAlerts(res.items);
+        setTotal(res.total);
+        setPages(res.pages);
+        setPage(res.page);
+      } catch (err) {
+        setError(errorMessage(err));
+        setAlerts([]);
+        setTotal(0);
+        setPages(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, statusFilter]
+  );
 
   useEffect(() => {
-    fetchAlerts();
-  }, []);
+    fetchAlerts(1, statusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
-  // Derive severity using the unified getter (works for both demo and real modes)
   const activeCritical = alerts.filter(a => a.status === "active" && getAlertSeverity(a) === "critical").length;
   const activeHigh = alerts.filter(a => a.status === "active" && getAlertSeverity(a) === "high").length;
   const totalUnresolved = alerts.filter(a => a.status !== "resolved" && a.status !== "dismissed").length;
 
   const filteredAlerts = alerts.filter(a => {
-    if (statusFilter !== "all" && a.status !== statusFilter) return false;
     if (severityFilter !== "all" && getAlertSeverity(a) !== severityFilter) return false;
     return true;
   });
 
   return (
     <AppShell>
-      <div className="fixed inset-0 pointer-events-none z-[-1] opacity-20">
-        <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-danger/20 blur-[150px] rounded-full mix-blend-screen" />
-      </div>
-
-      <FadeIn direction="up">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4 mb-8 border-b border-border/50 pb-6">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                Alert Center
-              </h1>
-              <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 font-semibold">
-                24/7 LIVE DISPATCH
-              </Badge>
-            </div>
-            <p className="text-foreground/60 text-base max-w-2xl">
-              Monitor and manage disaster risk warnings generated by the DisasterSense intelligence system.
-            </p>
+      <PageHeader
+        eyebrow="Dispatch"
+        title="Alert Center"
+        description="Monitor and manage disaster risk warnings generated by the DisasterSense intelligence system."
+        actions={
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="border-success/40 text-success bg-success/10 font-semibold">
+              API-LINKED
+            </Badge>
+            <Button size="sm" variant="outline" onClick={() => fetchAlerts(1)} disabled={loading}>
+              Refresh
+            </Button>
           </div>
-        </div>
-      </FadeIn>
+        }
+      />
 
       {/* Summary Cards */}
       <FadeIn delay={0.1}>
@@ -107,7 +136,7 @@ export default function AlertsPage() {
 
       {/* Filters & Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        
+
         {/* Filters Sidebar */}
         <div className="lg:col-span-1">
           <FadeIn delay={0.2} className="sticky top-24 space-y-6">
@@ -115,20 +144,20 @@ export default function AlertsPage() {
                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/50 mb-4 flex items-center">
                  <Filter className="w-4 h-4 mr-2" /> Filters
                </h3>
-               
+
                <div className="space-y-4">
                  <div>
                    <label className="text-xs text-foreground/40 uppercase mb-2 block">Status</label>
                    <div className="flex flex-col space-y-2">
-                     {["all", "active", "acknowledged", "resolved"].map((s) => (
-                       <Button 
-                         key={s} 
+                     {STATUS_OPTIONS.map((s) => (
+                       <Button
+                         key={s}
                          variant={statusFilter === s ? "default" : "outline"}
                          size="sm"
                          className="justify-start capitalize"
-                         onClick={() => setStatusFilter(s as any)}
+                         onClick={() => setStatusFilter(s)}
                        >
-                         {s}
+                         {s.replace(/_/g, " ")}
                        </Button>
                      ))}
                    </div>
@@ -137,19 +166,23 @@ export default function AlertsPage() {
                  <div>
                    <label className="text-xs text-foreground/40 uppercase mb-2 block">Severity</label>
                    <div className="flex flex-col space-y-2">
-                     {["all", "critical", "high"].map((s) => (
-                       <Button 
-                         key={s} 
+                     {SEVERITY_OPTIONS.map((s) => (
+                       <Button
+                         key={s}
                          variant={severityFilter === s ? "default" : "outline"}
                          size="sm"
                          className="justify-start capitalize"
-                         onClick={() => setSeverityFilter(s as any)}
+                         onClick={() => setSeverityFilter(s)}
                        >
                          {s}
                        </Button>
                      ))}
                    </div>
                  </div>
+
+                 <p className="text-[11px] text-muted-foreground border-t border-border pt-3">
+                   Showing {alerts.length} of {total} alert{total === 1 ? "" : "s"} on this page.
+                 </p>
                </div>
              </div>
           </FadeIn>
@@ -159,27 +192,44 @@ export default function AlertsPage() {
         <div className="lg:col-span-3">
           <FadeIn delay={0.3}>
             {loading ? (
-              <div className="py-20 flex flex-col items-center justify-center text-foreground/40">
-                <Loader2 className="w-8 h-8 animate-spin mb-4" />
-                <span>Loading Alerts...</span>
-              </div>
+              <LoadingPanel label="Loading alerts…" />
+            ) : error ? (
+              <ErrorState error={new Error(error)} onRetry={() => fetchAlerts(1)} />
             ) : filteredAlerts.length === 0 ? (
-              <div className="py-20 flex flex-col items-center justify-center text-foreground/40 bg-surface-muted/10 rounded-xl border border-dashed border-white/10">
-                <ShieldAlert className="w-12 h-12 mb-4 opacity-20" />
-                <span>No alerts match the current filters.</span>
-              </div>
+              <EmptyState
+                title="No alerts match the current filters"
+                description={
+                  statusFilter === "all" && severityFilter === "all"
+                    ? "No alerts have been generated yet. The telemetry worker creates alerts when observed conditions cross a hazard threshold."
+                    : "Clear the filters to see the full alert feed."
+                }
+              />
             ) : (
               <div className="space-y-4">
                 {filteredAlerts.map(alert => (
                   <div key={alert.id} onClick={() => setSelectedAlert(alert)} className="cursor-pointer transition-transform hover:scale-[1.01]">
-                    <AlertCard 
+                    <AlertCard
                       title={alert.title}
                       message={alert.message}
-                      severity={getAlertSeverity(alert) as "info" | "warning" | "critical" | "high"}
+                      severity={CARD_SEVERITY[getAlertSeverity(alert)] ?? "warning"}
                       time={new Date(alert.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                     />
                   </div>
                 ))}
+
+                {pages > 1 && (
+                  <div className="flex items-center justify-between border-t border-border pt-4">
+                    <p className="text-xs text-muted-foreground">Page {page} of {pages}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" disabled={loading || page <= 1} onClick={() => fetchAlerts(page - 1)}>
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={loading || page >= pages} onClick={() => fetchAlerts(page + 1)}>
+                        Next <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </FadeIn>
@@ -187,13 +237,12 @@ export default function AlertsPage() {
 
       </div>
 
-      <AlertDetailPanel 
-        alert={selectedAlert} 
-        open={!!selectedAlert} 
+      <AlertDetailPanel
+        alert={selectedAlert}
+        open={!!selectedAlert}
         onClose={() => setSelectedAlert(null)}
         onStatusChange={() => {
-          // Re-fetch alerts after a status change action
-          fetchAlerts();
+          fetchAlerts(page);
         }}
       />
     </AppShell>

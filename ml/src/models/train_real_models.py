@@ -101,9 +101,15 @@ def train_and_compare(hazard: str):
         pipeline.fit(X_train, y_train)
         
         val_metrics = evaluate_model(pipeline, X_val, y_val)
+        # Every candidate is also scored on the held-out test set so the
+        # /ml/experiments/{hazard} comparison endpoint has real numbers for
+        # each algorithm. Selection still uses validation metrics only, so the
+        # test set never influences model choice.
+        test_metrics = evaluate_model(pipeline, X_test, y_test)
         results[name] = {
             "model": pipeline,
-            "val_metrics": val_metrics
+            "val_metrics": val_metrics,
+            "test_metrics": test_metrics,
         }
         
         print(f"  Val Recall: {val_metrics['recall']:.2f} | Val F1: {val_metrics['f1']:.2f} | Val Acc: {val_metrics['accuracy']:.2f}")
@@ -117,8 +123,7 @@ def train_and_compare(hazard: str):
     print(f"\nSelected Best Model: {best_model_name}")
     
     # Evaluate best model on untouched TEST set
-    best_pipeline = results[best_model_name]["model"]
-    test_metrics = evaluate_model(best_pipeline, X_test, y_test)
+    test_metrics = results[best_model_name]["test_metrics"]
     
     print("\n--- Final Test Set Evaluation ---")
     print(f"Accuracy: {test_metrics['accuracy']:.2f}")
@@ -138,6 +143,7 @@ def train_and_compare(hazard: str):
         
         metadata = {
             "model_name": name,
+            "model_version": "real-v1",
             "hazard": hazard,
             "dataset_version": "real-v1",
             "feature_list": features,
@@ -145,9 +151,13 @@ def train_and_compare(hazard: str):
             "validation_row_count": n_val,
             "test_row_count": n_test,
             "random_seed": SEED,
-            "hyperparameters": "class_weight=balanced" if name != "XGBoost" else "scale_pos_weight=2.0",
+            "hyperparameters": (
+                {"class_weight": "balanced"}
+                if name != "XGBoost"
+                else {"scale_pos_weight": 2.0, "n_estimators": 100, "max_depth": 4}
+            ),
             "validation_metrics": data["val_metrics"],
-            "test_metrics": test_metrics if name == best_model_name else "Not evaluated on test set",
+            "test_metrics": data["test_metrics"],
             "training_timestamp": datetime.utcnow().isoformat() + "Z",
             "is_best_model": (name == best_model_name),
             "feature_importance": feature_importance(data["model"], features),

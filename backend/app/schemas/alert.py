@@ -52,6 +52,7 @@ class AlertCreate(BaseModel):
     disaster_event_id: int
     title: str = Field(..., min_length=1, max_length=300)
     message: str = Field(..., min_length=1)
+    severity: SeverityLevel | None = None
 
 
 class AlertAcknowledge(BaseModel):

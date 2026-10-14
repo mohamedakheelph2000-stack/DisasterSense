@@ -13,6 +13,7 @@ from app.api.v1 import (
     disaster_events,
     environment,
     health,
+    ingestion,
     locations,
     risk_assessments,
     alerts,
@@ -46,6 +47,7 @@ api_router.include_router(alerts.router)
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(environment.router, prefix="/environment", tags=["environment"])
 api_router.include_router(resources.router, prefix="/resources", tags=["resources"])
+api_router.include_router(ingestion.router)
 api_router.include_router(ml.router, prefix="/ml", tags=["ml"])
 api_router.include_router(ml_governance.router)
 api_router.include_router(spatial_risk.router)

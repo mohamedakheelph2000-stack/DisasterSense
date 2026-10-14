@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getMLStatus, getMLEvaluation, getMLExperiments } from "@/lib/api/ml";
 import { MLStatusResponse, MLHazardEvaluation, MLHazardComparisonResponse } from "@/lib/api/types/ml";
@@ -13,9 +12,12 @@ import FeatureImportanceChart from "@/components/ml/feature-importance-chart";
 import AlgorithmComparisonTable from "@/components/ml/algorithm-comparison-table";
 import DatasetTransparencyPanel from "@/components/ml/dataset-transparency-panel";
 import ModelLimitations from "@/components/ml/model-limitations";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { ErrorState, ForbiddenState, LoadingGrid } from "@/components/ui/states";
+import { errorMessage } from "@/lib/api/client";
 
 export default function MLIntelligencePage() {
-  const router = useRouter();
   const { user } = useAuth();
 
   const [status, setStatus] = useState<MLStatusResponse | null>(null);
@@ -24,50 +26,76 @@ export default function MLIntelligencePage() {
   const [floodExp, setFloodExp] = useState<MLHazardComparisonResponse | null>(null);
   const [landslideExp, setLandslideExp] = useState<MLHazardComparisonResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user && user.role === "citizen") {
-      router.push("/");
-    }
-  }, [user, router]);
+  const [partialError, setPartialError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || user.role === "citizen") return;
-    
+
     async function fetchData() {
+      setError(null);
+      setPartialError(null);
       try {
         const statusData = await getMLStatus();
         setStatus(statusData);
 
-        if (statusData.flood.loaded && statusData.flood.inference_source !== "heuristic") {
-          getMLEvaluation("flood").then(setFloodEval).catch(console.error);
-          getMLExperiments("flood").then(setFloodExp).catch(console.error);
-        }
-        if (statusData.landslide.loaded && statusData.landslide.inference_source !== "heuristic") {
-          getMLEvaluation("landslide").then(setLandslideEval).catch(console.error);
-          getMLExperiments("landslide").then(setLandslideExp).catch(console.error);
-        }
-      } catch (err: any) {
-        setError(err.message || "Failed to load ML intelligence data");
+        const problems: string[] = [];
+        const loadHazard = async (hazard: "flood" | "landslide") => {
+          const model = statusData[hazard];
+          if (!model.loaded || model.inference_source === "heuristic") return;
+          try {
+            const evaluation = await getMLEvaluation(hazard);
+            if (hazard === "flood") setFloodEval(evaluation);
+            else setLandslideEval(evaluation);
+          } catch (err) {
+            problems.push(`${hazard} evaluation: ${errorMessage(err)}`);
+          }
+          try {
+            const experiments = await getMLExperiments(hazard);
+            if (hazard === "flood") setFloodExp(experiments);
+            else setLandslideExp(experiments);
+          } catch (err) {
+            problems.push(`${hazard} experiments: ${errorMessage(err)}`);
+          }
+        };
+
+        await Promise.all([loadHazard("flood"), loadHazard("landslide")]);
+        if (problems.length) setPartialError(problems.join(" · "));
+      } catch (err) {
+        setError(errorMessage(err));
       }
     }
     fetchData();
   }, [user]);
 
-  if (!user || user.role === "citizen") return null;
+  if (!user || user.role === "citizen") {
+    return (
+      <AppShell>
+        <ForbiddenState message="ML model transparency is available to responder and admin accounts only." />
+      </AppShell>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4 space-y-8 mt-16 text-foreground">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-primary mb-2">ML Intelligence Center</h1>
-        <p className="text-muted-foreground">Technical transparency dashboard for DisasterSense predictive models.</p>
-      </div>
-      
-      {error && (
-        <Card className="bg-destructive/10 border-destructive">
-          <CardContent className="p-4 text-destructive">{error}</CardContent>
-        </Card>
-      )}
+    <AppShell>
+      <PageHeader
+        eyebrow="Intelligence"
+        title="ML Intelligence Center"
+        description="Technical transparency for the deployed flood and landslide models: evaluation metrics, feature attribution, dataset provenance and algorithm comparisons."
+      />
+
+      {error ? (
+        <div className="mb-6">
+          <ErrorState error={new Error(error)} />
+        </div>
+      ) : null}
+
+      {partialError && !error ? (
+        <div className="mb-6">
+          <ErrorState error={new Error(partialError)} title="Some model detail is unavailable" />
+        </div>
+      ) : null}
+
+      {!status && !error ? <LoadingGrid rows={2} className="mb-6" /> : null}
 
       {status && <MLSystemOverview status={status} />}
 
@@ -96,7 +124,8 @@ export default function MLIntelligencePage() {
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              Detailed evaluation metadata is not available for the currently loaded flood model.
+              Detailed evaluation metadata is not available for the currently loaded flood model. Run{" "}
+              <code className="text-info">ml/src/models/train_real_models.py</code> and restart the backend to publish it.
             </CardContent>
           </Card>
         )}
@@ -127,11 +156,12 @@ export default function MLIntelligencePage() {
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              Detailed evaluation metadata is not available for the currently loaded landslide model.
+              Detailed evaluation metadata is not available for the currently loaded landslide model. Run{" "}
+              <code className="text-info">ml/src/models/train_real_models.py</code> and restart the backend to publish it.
             </CardContent>
           </Card>
         )}
       </section>
-    </div>
+    </AppShell>
   );
 }

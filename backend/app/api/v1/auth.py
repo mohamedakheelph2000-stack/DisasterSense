@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.user import User
 from app.schemas.token import Token
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import UserRegister, UserRead
 from app.services.user_service import user_service
 
 router = APIRouter()
@@ -24,10 +24,14 @@ router = APIRouter()
 def register(
     *,
     db: Session = Depends(deps.get_db),
-    user_in: UserCreate,
+    user_in: UserRegister,
 ) -> Any:
     """
     Register a new user.
+
+    Self-registration always creates an active ``citizen`` account: the
+    request schema does not expose ``role`` or ``is_active``. Privileged
+    roles must be granted by an admin via ``PATCH /users/{id}``.
     """
     return user_service.create(db=db, obj_in=user_in)
 

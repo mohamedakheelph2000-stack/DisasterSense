@@ -41,6 +41,8 @@ uploads/
 storage/
 logs/
 *.log
+backend/var/
+scratch/
 
 # Docker and operating-system files
 postgres_data/

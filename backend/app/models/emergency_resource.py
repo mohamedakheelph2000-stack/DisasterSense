@@ -6,6 +6,7 @@ from app.core.database import Base
 class ResourceType(str, enum.Enum):
     SHELTER = "shelter"
     HOSPITAL = "hospital"
+    AMBULANCE = "ambulance"
     FIRE_STATION = "fire_station"
     POLICE_STATION = "police_station"
     RELIEF_CENTER = "relief_center"
@@ -39,6 +40,7 @@ class EmergencyResource(Base):
     
     capacity = Column(Integer, nullable=True)
     contact_info = Column(String(512), nullable=True)
+    phone_number = Column(String(64), nullable=True, index=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

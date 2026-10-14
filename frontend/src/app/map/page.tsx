@@ -7,11 +7,10 @@ import { MapLegend } from "@/components/maps/map-legend";
 import { LayerControl } from "@/components/maps/layer-control";
 import { MapSearch } from "@/components/maps/map-search";
 import { SelectedLocationPanel } from "@/components/maps/selected-location-panel";
-import { apiClient } from "@/lib/api/client";
-import { API_CONFIG } from "@/lib/api/config";
+import { apiClient, errorMessage } from "@/lib/api/client";
 import { buildMapData } from "@/lib/api/adapters";
 import { FadeIn } from "@/components/animations/fade-in";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-context";
 
@@ -30,6 +29,8 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [assessing, setAssessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   const [layers, setLayers] = useState({
     flood: true,
@@ -48,24 +49,57 @@ export default function MapPage() {
   const fetchMapData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const [locationsRes, eventsRes, resourcesRes, spatialRes, clustersRes] = await Promise.all([
-        apiClient<any>("/locations?page_size=100").catch(() => ({ items: [] })),
-        apiClient<any>("/disaster-events?page_size=100").catch(() => ({ items: [] })),
-        apiClient<any>("/resources?page_size=100").catch(() => ({ items: [] })),
-        apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ cells: [] })),
-        apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=predictive`).catch(() => ({ clusters: [] }))
-      ]);
-      const transformed = buildMapData(locationsRes.items || [], eventsRes.items || []);
-      setMapData({ center: transformed.center, zoom: transformed.zoom, riskZones: transformed.riskZones, resources: resourcesRes.items || [] });
-      setEvents(transformed.events);
-      setSpatialCells(spatialRes.cells || []);
-      setClusters(clustersRes.clusters || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load map data.");
-    } finally {
+    setWarning(null);
+
+    const layers = [
+      { label: "Locations", request: () => apiClient<any>("/locations?page_size=100"), fallback: { items: [] } },
+      { label: "Events", request: () => apiClient<any>("/disaster-events?page_size=100"), fallback: { items: [] } },
+      { label: "Resources", request: () => apiClient<any>("/resources?page_size=100"), fallback: { items: [] } },
+      {
+        label: "Risk grid",
+        request: () => apiClient<any>(`/spatial-risk/aggregation?time_range=${timeWindow}&record_type=predictive`),
+        fallback: { cells: [] },
+      },
+      {
+        label: "Clusters",
+        request: () => apiClient<any>(`/spatial-risk/clusters?time_range=${timeWindow}&record_type=predictive`),
+        fallback: { clusters: [] },
+      },
+    ];
+
+    const results = await Promise.allSettled(layers.map((l) => l.request()));
+    const failures: string[] = [];
+    results.forEach((result, i) => {
+      if (result.status === "rejected") {
+        failures.push(`${layers[i].label}: ${errorMessage(result.reason)}`);
+      }
+    });
+
+    if (failures.length === layers.length) {
+      setError(failures.join(" · "));
       setLoading(false);
+      return;
     }
+
+    if (failures.length) {
+      setWarning(`Some map layers are unavailable — ${failures.join(" · ")}`);
+    }
+
+    const [locationsRes, eventsRes, resourcesRes, spatialRes, clustersRes] = results.map((result, i) =>
+      result.status === "fulfilled" ? result.value : layers[i].fallback
+    );
+
+    const transformed = buildMapData(locationsRes.items || [], eventsRes.items || []);
+    setMapData({
+      center: transformed.center,
+      zoom: transformed.zoom,
+      riskZones: transformed.riskZones,
+      resources: resourcesRes.items || [],
+    });
+    setEvents(transformed.events);
+    setSpatialCells(spatialRes.cells || []);
+    setClusters(clustersRes.clusters || []);
+    setLoading(false);
   }, [timeWindow]);
 
   useEffect(() => {
@@ -94,6 +128,7 @@ export default function MapPage() {
   const handleRunAssessment = async (hazard: "flood" | "landslide") => {
     if (!selectedLocation || !selectedLocation.isCoordinateOnly) return;
     setAssessing(true);
+    setAssessmentError(null);
     try {
       const response = await apiClient<any>(`/risk-assessments/${hazard}?mode=automatic`, {
         method: "POST",
@@ -117,9 +152,8 @@ export default function MapPage() {
       setEvents(prev => [...prev, newEvent]);
       setSelectedLocation(newEvent);
       setSearchedCoords(null);
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Failed to run risk assessment.");
+    } catch (err) {
+      setAssessmentError(errorMessage(err));
     } finally {
       setAssessing(false);
     }
@@ -127,19 +161,25 @@ export default function MapPage() {
 
   const handleEscalateCluster = async (cluster: any, severity: string, note: string) => {
     if (!cluster.cluster_id || !cluster.member_ids) return;
-    
+
+    setAssessmentError(null);
     // We send member_ids as that is the stable provenance needed by the backend
-    await apiClient(`/spatial-risk/clusters/${cluster.cluster_id}/escalate`, {
-      method: "POST",
-      body: JSON.stringify({
-        member_ids: cluster.member_ids,
-        severity,
-        operational_note: note,
-        hazard_type: cluster.hazard_type,
-        record_type: cluster.record_type,
-        time_window: timeWindow
-      })
-    });
+    try {
+      await apiClient(`/spatial-risk/clusters/${cluster.cluster_id}/escalate`, {
+        method: "POST",
+        body: JSON.stringify({
+          member_ids: cluster.member_ids,
+          severity,
+          operational_note: note,
+          hazard_type: cluster.hazard_type,
+          record_type: cluster.record_type,
+          time_window: timeWindow
+        })
+      });
+    } catch (err) {
+      setAssessmentError(errorMessage(err));
+      throw err;
+    }
   };
 
   if (error) {
@@ -175,6 +215,32 @@ export default function MapPage() {
           baseMap={baseMap}
           onBaseMapChange={setBaseMap}
         />
+
+        {/* Partial-failure / assessment feedback */}
+        {(warning || assessmentError) && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[450] w-[min(92%,44rem)] pointer-events-auto">
+            <div role="alert" className="rounded-xl border border-warning/40 bg-warning/15 backdrop-blur-md px-4 py-3 text-xs text-warning shadow-2xl">
+              <div className="flex items-start gap-2">
+                <WifiOff className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex-1 break-words">
+                  {warning ? <p>{warning}</p> : null}
+                  {assessmentError ? <p className="mt-1">Assessment failed: {assessmentError}</p> : null}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Dismiss warning"
+                  className="shrink-0 rounded p-1 hover:bg-warning/20"
+                  onClick={() => {
+                    setWarning(null);
+                    setAssessmentError(null);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Syncing / Assessing indicator (non-destructive) */}
         {(loading || assessing) && (

@@ -68,16 +68,15 @@ def _process_open_meteo_response(data: dict, lat: float, lon: float, ref_time: d
         # Note: Open-Meteo returns times in ISO format without Z if timezone=UTC
         ref_idx = times.index(ref_time_str)
     except ValueError:
-        # If the exact hour is not found (e.g. data not generated yet for future hours), 
-        # default to the last available index if it's close, else error.
-        logger.warning(f"Exact ref_time {ref_time_str} not found. Attempting nearest past hour.")
-        try:
-            # Simple fallback to last hour available
-            ref_idx = len(times) - 1
-            if ref_idx < 0:
-                raise ValueError
-        except ValueError:
+        # The exact reference hour may not exist yet (future hours are not
+        # returned by the API). Fall back to the most recent hour that is not
+        # after the reference time rather than blindly taking the last entry,
+        # which could be a future forecast hour.
+        candidates = [i for i, t in enumerate(times) if t <= ref_time_str]
+        if not candidates:
             return _build_error_response(lat, lon, ref_time, f"Reference time {ref_time_str} out of bounds")
+        ref_idx = candidates[-1]
+        logger.debug(f"Exact ref_time {ref_time_str} not found. Using nearest past hour index {ref_idx}.")
 
     # 1. 24-hour rainfall & intensity
     # The 24 hours strictly leading up to (and including) ref_idx
@@ -129,11 +128,20 @@ def _process_open_meteo_response(data: dict, lat: float, lon: float, ref_time: d
     )
 
 def _build_error_response(lat: float, lon: float, ref_time: datetime, msg: str) -> EnvironmentalData:
+    """
+    Build an explicit failure response.
+
+    Measurement fields are deliberately left as ``None`` and the status is
+    ``ERROR``: fabricating plausible-looking values here would feed constants
+    into the ML risk engine while presenting them to operators as real
+    telemetry. Callers must treat ``ERROR`` as "no data available".
+    """
+    logger.warning("Open-Meteo data unavailable for (%s, %s): %s", lat, lon, msg)
     return EnvironmentalData(
         latitude=lat,
         longitude=lon,
         reference_timestamp=ref_time,
         status=ProviderStatus.ERROR,
         provider_name="open-meteo",
-        error_message=msg
+        error_message=msg,
     )

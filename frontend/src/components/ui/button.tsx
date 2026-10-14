@@ -7,9 +7,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_-3px_rgba(var(--primary),0.5)]",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_-3px_hsl(var(--primary) / 0.5)]",
         destructive:
-          "bg-critical text-foreground hover:bg-critical/90 shadow-[0_0_15px_-3px_rgba(var(--critical),0.5)]",
+          "bg-critical text-foreground hover:bg-critical/90 shadow-[0_0_15px_-3px_hsl(var(--critical) / 0.5)]",
         outline:
           "border border-border bg-transparent hover:bg-surface-muted hover:text-foreground",
         secondary:
@@ -33,17 +33,12 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean
-}
+    VariantProps<typeof buttonVariants> {}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    // If we wanted to use Slot from radix we would, but since we didn't add radix UI yet, 
-    // let's just use button for now.
-    const Comp = asChild ? (props as any).children.type : "button"
+  ({ className, variant, size, ...props }, ref) => {
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}

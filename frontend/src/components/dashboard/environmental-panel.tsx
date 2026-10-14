@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
-import { CloudRain, Thermometer, Droplets, Mountain, Activity } from "lucide-react";
+import { CloudRain, Thermometer, Droplets, Mountain } from "lucide-react";
 import { Badge } from "../ui/badge";
 
 interface EnvironmentalPanelProps {
